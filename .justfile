@@ -6,6 +6,11 @@ formatter_version := "1.0.45"
 _default:
   @just --list
 
+# Start a REPL that already has the package loaded
+repl:
+  #!/usr/bin/env -S julia --project --load
+  using PointClouds
+
 # Run automated tests with (optional) arguments
 test *ARGS:
   #!/usr/bin/env julia
