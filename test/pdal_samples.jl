@@ -71,7 +71,14 @@ function check_pdal_samples(; verbose)
       verbose && println("– $(sample)")
       path = joinpath(dir, replace(sample, '/' => "--"))
       isfile(path) || Downloads.download(pdal_url * sample, path)
-      @test read(path, LAS) isa LAS
+      @test read_sample(path; verbose = verbose) isa LAS
     end
   end
+end
+
+function read_sample(path; verbose)
+  las = read(path, LAS)
+  verbose && display(las)
+  verbose && println()
+  las
 end
