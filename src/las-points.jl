@@ -320,6 +320,17 @@ function Base.read(io::Base.IO, ::Type{PointRecord10{N}}) where {N}
   )
 end
 
+function Base.write(io::Base.IO, pt::T) where {T<:PointRecord}
+  for fname in fieldnames(T)
+    data = getfield(pt, fname)
+    if data isa Tuple
+      foreach(val -> write(io, val), data)
+    else
+      write(io, data)
+    end
+  end
+end
+
 function point_record_format(pdrf, bytes)
   if pdrf in 0:10
     T = (PointRecord0, PointRecord1, PointRecord2, PointRecord3, PointRecord4, PointRecord5, PointRecord6, PointRecord7, PointRecord8, PointRecord9, PointRecord10)[pdrf + 1]

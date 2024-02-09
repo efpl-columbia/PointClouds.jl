@@ -57,3 +57,12 @@ function Base.read(io::Base.IO, ::Type{VariableLengthRecord}; max_bytes = nothin
   data = read(io, record_length)
   VariableLengthRecord(user_id, record_id, data, description)
 end
+
+function Base.write(io::Base.IO, vlr::VariableLengthRecord; minor_version = 4)
+  write(io, minor_version > 0 ? 0x0000 : 0xAABB)
+  write(io, string_to_bytes(vlr.user_id, 16))
+  write(io, vlr.record_id)
+  write(io, UInt16(length(vlr.data)))
+  write(io, string_to_bytes(vlr.description, 32))
+  write(io, vlr.data)
+end

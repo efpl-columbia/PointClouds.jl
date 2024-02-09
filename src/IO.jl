@@ -6,6 +6,15 @@ import Dates
 
 bytes_to_string(bytes) = String(bytes[1:something(findlast(!iszero, bytes), 0)])
 
+function string_to_bytes(str, length)
+  nb = ncodeunits(str)
+  nb <= length || @error "String \"$str\" truncated to length $length"
+  nb = min(nb, length)
+  b = zeros(UInt8, length)
+  b[1:nb] = codeunits(str)[1:nb]
+  b
+end
+
 include("las-guid.jl")
 include("las-vlrs.jl")
 include("las-points.jl")
@@ -43,7 +52,9 @@ mutable struct LAS{T,P,V}
 end
 
 Base.length(las::LAS{T,UInt64}) where {T} = las.points
-Base.length(las::LAS{T,P}) where {T,P<:AbstractVector} = length(las.points)
+Base.length(las::LAS{T,P}) where {T,P<:AbstractVector{T}} = length(las.points)
+
+Base.eltype(las::LAS{T}) where {T} = T
 
 Base.summary(las::LAS) = string(length(las), "-point LAS")
 
@@ -91,6 +102,10 @@ function read_las_signature(io)
   if sig != (UInt8('L'), UInt8('A'), UInt8('S'), UInt8('F'))
     error("Invalid file signature: $sig")
   end
+end
+
+function write_las_signature(io)
+  write(io, UInt8('L'), UInt8('A'), UInt8('S'), UInt8('F'))
 end
 
 function Base.read(io::Base.IO, ::Type{LAS})
@@ -290,4 +305,88 @@ function Base.read(io::Base.IO, ::Type{LAS})
   )
 end
 
+function Base.write(io::Base.IO, las::LAS)
+  major_version, minor_version = las.version
+  major_version == 1 || error("Unsupported major LAS version v$major_version.$minor_version")
+  minor_version <= 4 || error("Unsupported minor LAS version v$major_version.$minor_version")
+
+  write_las_signature(io)
+  write(io, las.source_id)
+  encoding = UInt16(las.has_adjusted_standard_gps_time) |
+    UInt16(las.has_internal_waveform) << 1 |
+    UInt16(las.has_external_waveform) << 2 |
+    UInt16(las.has_synthetic_return_numbers) << 3 |
+    UInt16(las.has_well_known_text) << 4
+  write(io, encoding)
+  write(io, las.project_id)
+  write(io, las.version...)
+  write(io, string_to_bytes(las.system_id, 32))
+  write(io, string_to_bytes(las.software_id, 32))
+  write(io, las.creation_day...)
+  header_size = (227, 227, 227, 235, 375)[minor_version + 1]
+  write(io, UInt16(header_size))
+  vlr_size = sum(54 + length(vlr.data) for vlr in las.vlrs; init = 0)
+  write(io, UInt32(header_size + vlr_size + length(las.extra_data)))
+  write(io, UInt32(length(las.vlrs)))
+  println("header size = ", header_size, ", point-data offset = ", header_size + vlr_size + length(las.extra_data))
+
+  pdrf = pdrf_id(eltype(las))
+  write(io, UInt8(pdrf))
+  write(io, UInt16(sum(sizeof(t) for t in fieldtypes(eltype(las)))))
+    if (minor_version <= 1 && pdrf > 1) || (minor_version <= 2 && pdrf > 3) || (minor_version <= 3 && pdrf > 5)
+    error("Point Data Record Format $pdrf is not allowed in LAS v1.$(minor_version)")
+  end
+
+  # legacy point count (total & by return)
+  if minor_version < 4 && length(las) > typemax(UInt32)
+    error("LAS v1.$(minor_version) does not support more than $(typemax(UInt32)) points")
+  end
+  if any(n > length(las) for n in las.return_counts)
+    error("Points count by return type exceeds total point count")
+  end
+  if length(las) <= typemax(UInt32) && pdrf < 6
+    write(io, UInt32(length(las)))
+    foreach(i -> write(io, UInt32(las.return_counts[i])), 1:5)
+  else
+    foreach(_ -> write(io, zero(UInt32)), 1:6)
+  end
+
+  # coordinate-related fields
+  write(io, las.coord_scale...)
+  write(io, las.coord_offset...)
+  write(io, las.coord_max[1])
+  write(io, las.coord_min[1])
+  write(io, las.coord_max[2])
+  write(io, las.coord_min[2])
+  write(io, las.coord_max[3])
+  write(io, las.coord_min[3])
+
+  # fields introduced in LAS v1.3
+  if minor_version >= 3
+    # TODO: implement support for waveform data
+    # start of waveform data packet record
+    write(io, zero(UInt64))
+  end
+
+  # fields introduced in LAS v1.4
+  if minor_version >= 4
+    # TODO: implement support for extended variable length records
+    # start of first extended variable length record
+    write(io, zero(UInt64))
+    # number of extended variable length records
+    write(io, zero(UInt32))
+
+    # point count (total & by return)
+    write(io, UInt64(length(las)))
+    foreach(i -> write(io, las.return_counts[i]), 1:15)
+  else
+    iszero(las.return_counts[6:15]) || @error "Non-zero point count for returns 6–15"
+  end
+
+  # write extra data, VLRs & points
+  foreach(vlr -> write(io, vlr; minor_version = minor_version), las.vlrs)
+  write(io, las.extra_data)
+  foreach(pt -> write(io, pt), las.points)
 end
+
+end # module IO

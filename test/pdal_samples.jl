@@ -68,17 +68,25 @@ function check_pdal_samples(; verbose)
   mkpath(dir)
   @testset "Check PDAL sample files in `$dir`" begin
     @testset "$sample" for sample in pdal_samples
-      verbose && println("– $(sample)")
-      path = joinpath(dir, replace(sample, '/' => "--"))
-      isfile(path) || Downloads.download(pdal_url * sample, path)
-      @test read_sample(path; verbose = verbose) isa LAS
+      verbose && println("→ $(sample)")
+      path_in = joinpath(dir, replace(sample, '/' => "--"))
+      isfile(path_in) || Downloads.download(pdal_url * sample, path_in)
+      path_out = tempname() * ".las"
+      @test let
+        las = read(path_in, LAS)
+        verbose && display(las)
+        verbose && println()
+        write(path_out, las)
+        compare_files(path_in, path_out)
+      end == []
     end
   end
 end
 
-function read_sample(path; verbose)
-  las = read(path, LAS)
-  verbose && display(las)
-  verbose && println()
-  las
+function compare_files(paths...)
+  data = read.(paths)
+  n, N = extrema(length.(data))
+  mismatch = findall(!allequal(d[i] for d in data) for i in 1:n)
+  append!(mismatch, n+1:N)
+  mismatch
 end

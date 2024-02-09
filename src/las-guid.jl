@@ -29,3 +29,7 @@ function Base.read(io::Base.IO, ::Type{GUID})
   p4 = ntuple(_ -> read(io, UInt8), 8)
   GUID(p1, p2, p3, p4)
 end
+
+function Base.write(io::Base.IO, guid::GUID)
+  write(io, guid.p1, guid.p2, guid.p3, guid.p4...)
+end
