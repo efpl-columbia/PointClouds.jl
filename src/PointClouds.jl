@@ -1,5 +1,9 @@
 module PointClouds
 
-# export public_function
+export LAS
+
+include("IO.jl")
+
+using .IO
 
 end # module PointClouds
