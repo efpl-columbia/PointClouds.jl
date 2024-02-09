@@ -4,6 +4,8 @@ export LAS
 
 import Dates
 
+include("las-points.jl")
+
 bytes_to_string(bytes) = String(bytes[1:something(findlast(!iszero, bytes), 0)])
 
 struct GUID
@@ -131,24 +133,23 @@ mutable struct LAS{T,P,V}
 end
 
 Base.length(las::LAS{T,UInt64}) where {T} = las.points
+Base.length(las::LAS{T,P}) where {T,P<:AbstractVector} = length(las.points)
 
-function Base.summary(las::LAS{T}) where T
-  n = length(las)
-  pdrf = "PDRF$T"
-  "$n-point LAS{$pdrf}"
-end
+Base.summary(las::LAS) = string(length(las), "-point LAS")
 
-function Base.show(io::Base.IO, las::LAS)
+function Base.show(io::Base.IO, las::LAS{T}) where T
   print(io, summary(las), " (")
+  print(io, "v$(las.version[1]).$(las.version[2])")
+  print(io, ", ", pdrf_name(T), ", ")
   let (day, year) = las.creation_day
     if 1 <= day <= 366
       date = Dates.Date(year) + Dates.Day(day - 1)
       print(io, Dates.format(date, "dd u yyyy"))
     else
-      print(io, "Day ", day, ", Year ", year)
+      print(io, "Day ", day, " Year ", year)
     end
   end
-  print(io, ", v$(las.version[1]).$(las.version[2]))")
+  print(io, ")")
 
   pad = 14
   print(io, rpad("\n  Source ID", pad), "=> ", iszero(las.source_id) ? "(unassigned)" : string(las.source_id))
@@ -333,11 +334,26 @@ function Base.read(io::Base.IO, ::Type{LAS})
   end
   extra_data = read(io, remaining)
 
-  # for now, skip loading actual data
-  pttype = (pdrf_type, pdrf_length)
-  points = point_count_total
+  # read point data, without choking on truncated files
+  pdrf = point_record_format(pdrf_type, pdrf_length)
+  points = Vector{pdrf}(undef, point_count_total)
+  for ind in 1:point_count_total
+    try
+      points[ind] = read(io, pdrf)
+    catch ex
+      ex isa EOFError || rethrow()
+      n = point_count_total - ind + 1
+      s = n > 1 ? "s" : ""
+      # TODO: check if discarded data can be added to error message
+      @error "Point data ended prematurely ($n record$s missing)"
+      resize!(points, ind - 1)
+      break
+    end
+  end
 
-  LAS{pttype, typeof(points), typeof(vlrs)}(
+  eof(io) || @error "Input longer than expected"
+
+  LAS{pdrf, typeof(points), typeof(vlrs)}(
     points,
     vlrs,
     extra_data,
