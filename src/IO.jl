@@ -73,7 +73,7 @@ function Base.show(io::Base.IO, las::LAS{T}) where T
   print(io, ")")
 
   pad = 14
-  print(io, rpad("\n  Source ID", pad), "=> ", iszero(las.source_id) ? "(unassigned)" : string(las.source_id))
+  print(io, rpad("\n  Source ID", pad), "=> ", iszero(las.source_id) ? "(empty)" : string(las.source_id))
   print(io, rpad("\n  Project ID", pad), "=> ")
   show(io, las.project_id)
   print(io, rpad("\n  System ID", pad), "=> \"", las.system_id, "\"")
@@ -94,7 +94,7 @@ function Base.show(io::Base.IO, las::LAS{T}) where T
     print(io, "\n    => ")
     show(io, vlr)
   end
-  nvlr > 5 && println("\n    => ($(nvlr - 5) more records)")
+  nvlr > 5 && print("\n    => ($(nvlr - 5) more records)")
 end
 
 function read_las_signature(io)
@@ -250,8 +250,13 @@ function Base.read(io::Base.IO, ::Type{LAS})
   # read the point data if there is an issue with the VLR data
   remaining = point_data_offset - bytes_read
   vlrs = VariableLengthRecord[]
-  for _ in 1:vlr_count
-    iszero(remaining) && break
+  for ind in 1:vlr_count
+    if iszero(remaining)
+      n = vlr_count - ind + 1
+      s = n > 1 ? "s" : ""
+      @error "VLR data ends prematurely ($n record$s missing)"
+      break
+    end
     vlr = read(io, VariableLengthRecord; version = version, max_bytes = remaining)
     isnothing(vlr) && break
     push!(vlrs, vlr)
@@ -270,7 +275,7 @@ function Base.read(io::Base.IO, ::Type{LAS})
       n = point_count_total - ind + 1
       s = n > 1 ? "s" : ""
       # TODO: check if discarded data can be added to error message
-      @error "Point data ended prematurely ($n record$s missing)"
+      @error "Point data ends prematurely ($n record$s missing)"
       resize!(points, ind - 1)
       break
     end
@@ -328,7 +333,6 @@ function Base.write(io::Base.IO, las::LAS)
   vlr_size = sum(54 + length(vlr.data) for vlr in las.vlrs; init = 0)
   write(io, UInt32(header_size + vlr_size + length(las.extra_data)))
   write(io, UInt32(length(las.vlrs)))
-  println("header size = ", header_size, ", point-data offset = ", header_size + vlr_size + length(las.extra_data))
 
   pdrf = pdrf_number(eltype(las))
   write(io, UInt8(pdrf))

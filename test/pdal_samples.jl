@@ -74,10 +74,19 @@ function check_pdal_samples(; verbose)
       isfile(path_in) || Downloads.download(pdal_url * sample, path_in)
       path_out = tempname() * ".las"
       @test expected_mismatch == let
-        las = read(path_in, LAS)
-        verbose && display(las)
-        verbose && println()
-        write(path_out, las)
+        las = if verbose
+          las = read(path_in, LAS)
+          display(las)
+          write(path_out, las)
+          println()
+          las
+        else
+          redirect_stderr(devnull) do
+            las = read(path_in, LAS)
+            write(path_out, las)
+            las
+          end
+        end
         mismatch = compare_files(path_in, path_out)
         interpret_mismatch(mismatch, las)
       end

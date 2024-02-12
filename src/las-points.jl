@@ -180,6 +180,10 @@ struct PointRecord10{N} <: PointRecord{10,N}
   extra_bytes::NTuple{N,UInt8}
 end
 
+function Base.show(io::Base.IO, ::Type{<:PointRecord{F,N}}) where {F,N}
+  print(io, "PointRecord{", F, iszero(N) ? "" : ",$N", "}")
+end
+
 pdrf_number(::Type{<:PointRecord{F}}) where F = F
 pdrf_nonstandard_bytes(::Type{<:PointRecord{F,N}}) where {F,N} = N
 
