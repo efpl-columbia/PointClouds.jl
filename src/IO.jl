@@ -337,16 +337,42 @@ function Base.write(io::Base.IO, las::LAS)
     error("Point Data Record Format $pdrf is not allowed in LAS v1.$(minor_version)")
   end
 
+  # recomputing & checking summary values from point data
+  coord_min, coord_max, return_counts = recompute_summary(las)
+  coord_min = ntuple(3) do ind
+    computed, original = coord_min[ind], las.coord_min[ind]
+    if computed < original && !isapprox(computed, original)
+      @warn "Updating minimum $("xyz"[ind])-coordinate from $(original) to $computed"
+      return computed
+    end
+    original
+  end
+  coord_max = ntuple(3) do ind
+    computed, original = coord_max[ind], las.coord_max[ind]
+    if computed > original && !isapprox(computed, original)
+      @warn "Updating maximum $("xyz"[ind])-coordinate from $original to $computed"
+      return computed
+    end
+    original
+  end
+  return_counts = ntuple(15) do ind
+    computed, original = return_counts[ind], las.return_counts[ind]
+    if computed != original
+      @warn "Updating point count for return number $ind from $original to $computed"
+    end
+    return computed
+  end
+
   # legacy point count (total & by return)
   if minor_version < 4 && length(las) > typemax(UInt32)
     error("LAS v1.$(minor_version) does not support more than $(typemax(UInt32)) points")
   end
-  if any(n > length(las) for n in las.return_counts)
+  if any(n > length(las) for n in return_counts)
     error("Points count by return type exceeds total point count")
   end
-  if length(las) <= typemax(UInt32) && pdrf < 6
+  if length(las) <= typemax(UInt32) && pdrf <= 5
     write(io, UInt32(length(las)))
-    foreach(i -> write(io, UInt32(las.return_counts[i])), 1:5)
+    foreach(i -> write(io, UInt32(return_counts[i])), 1:5)
   else
     foreach(_ -> write(io, zero(UInt32)), 1:6)
   end
@@ -354,12 +380,12 @@ function Base.write(io::Base.IO, las::LAS)
   # coordinate-related fields
   write(io, las.coord_scale...)
   write(io, las.coord_offset...)
-  write(io, las.coord_max[1])
-  write(io, las.coord_min[1])
-  write(io, las.coord_max[2])
-  write(io, las.coord_min[2])
-  write(io, las.coord_max[3])
-  write(io, las.coord_min[3])
+  write(io, coord_max[1])
+  write(io, coord_min[1])
+  write(io, coord_max[2])
+  write(io, coord_min[2])
+  write(io, coord_max[3])
+  write(io, coord_min[3])
 
   # fields introduced in LAS v1.3
   if minor_version >= 3
@@ -378,15 +404,34 @@ function Base.write(io::Base.IO, las::LAS)
 
     # point count (total & by return)
     write(io, UInt64(length(las)))
-    foreach(i -> write(io, las.return_counts[i]), 1:15)
+    foreach(i -> write(io, return_counts[i]), 1:15)
   else
-    iszero(las.return_counts[6:15]) || @error "Non-zero point count for returns 6–15"
+    for ind in 6:15
+      if !iszero(return_counts[ind])
+        @warn "Some points have a return number of $ind (should be between 1 and 5)"
+      end
+    end
   end
 
   # write extra data, VLRs & points
   foreach(vlr -> write(io, vlr; minor_version = minor_version), las.vlrs)
   write(io, las.extra_data)
   foreach(pt -> write(io, pt), las.points)
+end
+
+function recompute_summary(las::LAS)
+  return_counts = zeros(UInt64, 15)
+  xmin, ymin, zmin = ntuple(_ -> typemax(Int32), 3)
+  xmax, ymax, zmax = ntuple(_ -> typemin(Int32), 3)
+  for pt in las.points
+    r = return_number(pt)
+    !iszero(r) && (return_counts[r] += 1)
+    xmin, ymin, zmin = min.((xmin, ymin, zmin), pt.coords)
+    xmax, ymax, zmax = max.((xmax, ymax, zmax), pt.coords)
+  end
+  coord_min = (xmin, ymin, zmin) .* las.coord_scale .+ las.coord_offset
+  coord_max = (xmax, ymax, zmax) .* las.coord_scale .+ las.coord_offset
+  coord_min, coord_max, return_counts
 end
 
 end # module IO

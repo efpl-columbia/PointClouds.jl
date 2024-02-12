@@ -334,3 +334,10 @@ function point_record_type(pdrf, bytes)
     UnknownPointRecord{Int(pdrf),Int(bytes)}
   end
 end
+
+function return_number(pt::PointRecord{F}) where {F}
+  if F <= 5 # legacy point formats
+    return Int(pt.category[1] & 0b00000111) # bits 0–2
+  end
+  pt.category[1] & 0b00001111 # bits 0–3
+end
