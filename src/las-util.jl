@@ -1,3 +1,14 @@
+bytes_to_string(bytes) = String(bytes[1:something(findlast(!iszero, bytes), 0)])
+
+function string_to_bytes(str, length)
+  nb = ncodeunits(str)
+  nb <= length || @error "String \"$str\" truncated to length $length"
+  nb = min(nb, length)
+  b = zeros(UInt8, length)
+  b[1:nb] = codeunits(str)[1:nb]
+  b
+end
+
 struct GUID
   p1::UInt32
   p2::UInt16
