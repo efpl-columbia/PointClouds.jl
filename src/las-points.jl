@@ -1,10 +1,10 @@
-abstract type PointRecord end
+abstract type PointRecord{F,N} end
 
-struct UnknownPointRecord{N} <: PointRecord
+struct UnknownPointRecord{F,N} <: PointRecord{F,N}
   data::NTuple{N,UInt8}
 end
 
-struct PointRecord0{N} <: PointRecord
+struct PointRecord0{N} <: PointRecord{0,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -16,7 +16,7 @@ struct PointRecord0{N} <: PointRecord
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord1{N} <: PointRecord
+struct PointRecord1{N} <: PointRecord{1,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -30,7 +30,7 @@ struct PointRecord1{N} <: PointRecord
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord2{N} <: PointRecord
+struct PointRecord2{N} <: PointRecord{2,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -44,7 +44,7 @@ struct PointRecord2{N} <: PointRecord
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord3{N} <: PointRecord
+struct PointRecord3{N} <: PointRecord{3,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -59,7 +59,7 @@ struct PointRecord3{N} <: PointRecord
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord4{N} <: PointRecord
+struct PointRecord4{N} <: PointRecord{4,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -78,7 +78,7 @@ struct PointRecord4{N} <: PointRecord
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord5{N} <: PointRecord
+struct PointRecord5{N} <: PointRecord{5,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -98,7 +98,7 @@ struct PointRecord5{N} <: PointRecord
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord6{N} <: PointRecord
+struct PointRecord6{N} <: PointRecord{6,N}
   # core items (new formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -111,7 +111,7 @@ struct PointRecord6{N} <: PointRecord
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord7{N} <: PointRecord
+struct PointRecord7{N} <: PointRecord{7,N}
   # core items (new formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -126,7 +126,7 @@ struct PointRecord7{N} <: PointRecord
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord8{N} <: PointRecord
+struct PointRecord8{N} <: PointRecord{8,N}
   # core items (new formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -141,7 +141,7 @@ struct PointRecord8{N} <: PointRecord
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord9{N} <: PointRecord
+struct PointRecord9{N} <: PointRecord{9,N}
   # core items (new formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -160,7 +160,7 @@ struct PointRecord9{N} <: PointRecord
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord10{N} <: PointRecord
+struct PointRecord10{N} <: PointRecord{10,N}
   # core items (new formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -180,26 +180,18 @@ struct PointRecord10{N} <: PointRecord
   extra_bytes::NTuple{N,UInt8}
 end
 
-pdrf_id(::Type{<:PointRecord0}) = 0
-pdrf_id(::Type{<:PointRecord1}) = 1
-pdrf_id(::Type{<:PointRecord2}) = 2
-pdrf_id(::Type{<:PointRecord3}) = 3
-pdrf_id(::Type{<:PointRecord4}) = 4
-pdrf_id(::Type{<:PointRecord5}) = 5
-pdrf_id(::Type{<:PointRecord6}) = 6
-pdrf_id(::Type{<:PointRecord7}) = 7
-pdrf_id(::Type{<:PointRecord8}) = 8
-pdrf_id(::Type{<:PointRecord9}) = 9
-pdrf_id(::Type{<:PointRecord10}) = 10
+pdrf_number(::Type{<:PointRecord{F}}) where F = F
+pdrf_nonstandard_bytes(::Type{<:PointRecord{F,N}}) where {F,N} = N
 
-pdrf_name(::Type{UnknownPointRecord{N}}) where N = "unsupported $N-byte Point Data Record Format"
-function pdrf_name(::Type{T}) where {T <: PointRecord}
-  nb = sizeof(fieldtype(T, :extra_bytes))
-  string("PDRF ", pdrf_id(T), iszero(nb) ? "" : " with $nb extra bytes")
+function pdrf_description(::Type{UnknownPointRecord{F,N}}) where {F,N}
+  "unsupported $N-byte PDRF $F"
+end
+function pdrf_description(::Type{<:PointRecord{F,N}}) where {F,N}
+  string("PDRF ", F, iszero(N) ? "" : " with $N extra bytes")
 end
 
-function Base.read(io::Base.IO, ::Type{UnknownPointRecord{N}}) where {N}
-  UnknownPointRecord{N}(ntuple(_ -> read(io, UInt8), N))
+function Base.read(io::Base.IO, ::Type{UnknownPointRecord{F,N}}) where {F,N}
+  UnknownPointRecord{F,N}(ntuple(_ -> read(io, UInt8), N))
 end
 
 read_core_legacy(io) = (
@@ -331,14 +323,14 @@ function Base.write(io::Base.IO, pt::T) where {T<:PointRecord}
   end
 end
 
-function point_record_format(pdrf, bytes)
+function point_record_type(pdrf, bytes)
   if pdrf in 0:10
     T = (PointRecord0, PointRecord1, PointRecord2, PointRecord3, PointRecord4, PointRecord5, PointRecord6, PointRecord7, PointRecord8, PointRecord9, PointRecord10)[pdrf + 1]
     nextra = bytes - sum(sizeof(t) for t in fieldtypes(T{0}))
     nextra >= 0 || error("Record length $bytes is too small for point format $pdrf")
     T{Int(nextra)}
   else
-    @error "Unsupported Point Data Record Format: $pdrf"
-    UnknownPointRecord{Int(bytes)}
+    @error "Unknown Point Data Record Format: $pdrf"
+    UnknownPointRecord{Int(pdrf),Int(bytes)}
   end
 end

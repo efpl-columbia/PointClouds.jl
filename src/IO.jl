@@ -61,7 +61,7 @@ Base.summary(las::LAS) = string(length(las), "-point LAS")
 function Base.show(io::Base.IO, las::LAS{T}) where T
   print(io, summary(las), " (")
   print(io, "v$(las.version[1]).$(las.version[2])")
-  print(io, ", ", pdrf_name(T), ", ")
+  print(io, ", ", pdrf_description(T), ", ")
   let (day, year) = las.creation_day
     if 1 <= day <= 366
       date = Dates.Date(year) + Dates.Day(day - 1)
@@ -260,7 +260,7 @@ function Base.read(io::Base.IO, ::Type{LAS})
   extra_data = read(io, remaining)
 
   # read point data, without choking on truncated files
-  pdrf = point_record_format(pdrf_type, pdrf_length)
+  pdrf = point_record_type(pdrf_type, pdrf_length)
   points = Vector{pdrf}(undef, point_count_total)
   for ind in 1:point_count_total
     try
@@ -330,7 +330,7 @@ function Base.write(io::Base.IO, las::LAS)
   write(io, UInt32(length(las.vlrs)))
   println("header size = ", header_size, ", point-data offset = ", header_size + vlr_size + length(las.extra_data))
 
-  pdrf = pdrf_id(eltype(las))
+  pdrf = pdrf_number(eltype(las))
   write(io, UInt8(pdrf))
   write(io, UInt16(sum(sizeof(t) for t in fieldtypes(eltype(las)))))
     if (minor_version <= 1 && pdrf > 1) || (minor_version <= 2 && pdrf > 3) || (minor_version <= 3 && pdrf > 5)
