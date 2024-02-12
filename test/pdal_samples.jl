@@ -5,52 +5,52 @@ const pdal_commit = "d37b077053116f4b76d360d379dbcaf890fd4a39"
 const pdal_url = "https://github.com/PDAL/PDAL/raw/$pdal_commit/test/data/las/"
 const pdal_samples = [
   "100-points.las",
-  "1.2-empty-geotiff-vlrs.las" => [:vlr_reserved],
-  "1.2-with-color-clipped.las" => [:legacy_counts],
+  "1.2-empty-geotiff-vlrs.las" => [:vlr_reserved => 10],
+  "1.2-with-color-clipped.las" => [:legacy_counts => 2],
   "1.2-with-color.las",
-  "4_1.las",
-  "4_6.las" => [:legacy_counts],
-  "autzen_trim_7.las" => [:legacy_counts],
+  "4_1.las" => [:point_counts => 2],
+  "4_6.las" => [:legacy_counts => 12],
+  "autzen_trim_7.las" => [:legacy_counts => 11],
   "autzen_trim.las",
-  "bad-geotiff-keys.las",
-  "epsg_4326.las",
+  "bad-geotiff-keys.las" => [:legacy_counts => 1],
+  "epsg_4326.las" => [:legacy_counts => 2],
   "extrabytes.las",
-  "garbage_nVariableLength.las" => [:vlr_reserved],
+  "garbage_nVariableLength.las" => [:global_encoding => 2, :legacy_counts => 3, :point_data => 14, :vlr_count => 4],
   "gps-time-nan.las",
   "hextest.las",
-  "interesting.las" => [:vlr_reserved],
-  "lots_of_vlr.las" => [:vlr_reserved],
-  "mvk-thin.las" => [:vlr_reserved],
+  "interesting.las" => [:vlr_reserved => 10],
+  "lots_of_vlr.las" => [:vlr_reserved => 776],
+  "mvk-thin.las" => [:vlr_reserved => 10],
   "noise-clean.las",
   "noise-dirty.las",
-  "no-points.las" => [:vlr_reserved],
-  "permutations/1.0_0.las" => [:vlr_reserved],
-  "permutations/1.0_1.las" => [:vlr_reserved],
+  "no-points.las" => [:vlr_reserved => 8],
+  "permutations/1.0_0.las" => [:vlr_reserved => 6],
+  "permutations/1.0_1.las" => [:vlr_reserved => 6],
   "permutations/1.1_0.las",
   "permutations/1.1_1.las",
   "permutations/1.2_0.las",
   "permutations/1.2_1.las",
   "permutations/1.2_2.las",
   "permutations/1.2_3.las",
-  "permutations/1.2-no-points.las",
+  "permutations/1.2-no-points.las" => [:legacy_counts => 7],
   "prec3.las",
-  "sample_c.las",
+  "sample_c.las" => [:bounding_box => 4, :legacy_counts => 5],
   "sample_c_thin.las",
-  "sample_nc.las",
+  "sample_nc.las" => [:bounding_box => 4, :legacy_counts => 5],
   "simple.las",
   "spec_3.las",
-  "spurious.las" => [:vlr_reserved],
+  "spurious.las" => [:bounding_box => 7, :vlr_reserved => 8],
   "synthetic_test.las",
-  "test1_4.las" => [:legacy_counts],
-  "test_epsg_4047.las",
+  "test1_4.las" => [:legacy_counts => 7],
+  "test_epsg_4047.las" => [:bounding_box => 8],
   "test_epsg_4326_axis.las",
-  "test_epsg_4326.las",
+  "test_epsg_4326.las" => [:bounding_box => 8],
   "test_epsg_4326x3.las",
   "test_utm16.las",
   "test_utm17.las",
-  "utm15.las",
+  "utm15.las" => [:bounding_box => 4],
   "utm17.las",
-  "wontcompress3.las" => [:legacy_counts],
+  "wontcompress3.las" => [:legacy_counts => 6],
 ]
 
 """
@@ -94,23 +94,34 @@ function compare_files(paths...)
 end
 
 function interpret_mismatch(mismatch, las)
-  reasons = Set()
+  classified, other = Dict(), []
+  classify_mismatch(k) = (classified[k] = get(classified, k, 0) + 1)
+  unknown_mismatch(x) = push!(other, x)
 
   header_size = (227, 227, 227, 235, 375)[las.version[2] + 1]
   vlr_sizes = [54 + length(vlr.data) for vlr in las.vlrs]
   vlr_offsets = [header_size + sum(vlr_sizes[1:i-1]) for i in 1:length(las.vlrs)]
+  point_offset = header_size + sum(vlr_sizes) + length(las.extra_data)
 
-  filter!(mismatch) do ind
-      if ind in 108:131
-        push!(reasons, :legacy_counts)
-        return false
-      end
-      if any((ind == o+1 || ind == o+2) for o in vlr_offsets)
-        push!(reasons, :vlr_reserved)
-        return false
-      end
-      true
+  for ind in mismatch
+    if ind in 7:8
+      classify_mismatch(:global_encoding)
+    elseif ind in 101:104
+      classify_mismatch(:vlr_count)
+    elseif ind in 108:131
+      classify_mismatch(:legacy_counts)
+    elseif ind in 180:227
+      classify_mismatch(:bounding_box)
+    elseif ind in 248:375 && las.version[2] >= 4
+      classify_mismatch(:point_counts)
+    elseif any((ind == o+1 || ind == o+2) for o in vlr_offsets)
+      classify_mismatch(:vlr_reserved)
+    elseif ind > point_offset
+      classify_mismatch(:point_data)
+    else
+      unknown_mismatch(ind)
+    end
   end
 
-  [sort(collect(reasons)); mismatch]
+  [sort(collect(classified)); other]
 end
