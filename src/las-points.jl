@@ -222,6 +222,52 @@ function Base.show(io::Base.IO, ::Type{<:PointRecord{F,N}}) where {F,N}
   print(io, "PointRecord{", F, iszero(N) ? "" : ",$N", "}")
 end
 
+function Base.show(io::Base.IO, pt::PointRecord{F,N}) where {F,N}
+  io = IOContext(io, :compact => true) # to make floats more reasonable
+  get(io, :typeinfo, Any) == typeof(pt) || show(io, typeof(pt))
+  coords = integer_coordinates(pt)
+  print(io, "(X = ", coords[1], ", Y = ", coords[2], ", Z = ", coords[3])
+  iszero(intensity(pt)) || print(io, ", intensity = ", intensity(pt))
+  print(io, ", return = ", return_number(pt), "/", return_count(pt))
+  print(io, ", classification = ", classification(pt))
+  flags = []
+  push!(flags, is_left_to_right(pt) ? "left-to-right" : "right-to-left")
+  is_edge_of_line(pt) && push!(flags, "edge of flight line")
+  is_synthetic(pt) && push!(flags, "synthetic")
+  is_key_point(pt) && push!(flags, "key-point")
+  is_withheld(pt) && push!(flags, "withheld")
+  print(io, ", attributes = [", join(flags, ", "), "]")
+
+  # if angle is defined as integer, print as Int64 so it has no decimal point
+  # but abs(pt) still works for typemin(Int16)
+  angle = pt isa LegacyPointRecord ? Int64(pt.scan_angle) : scan_angle(pt)
+  angle_prefix = angle > 0 ? "+" : angle < 0 ? "−" : ""
+  print(io, ", scan angle = ", angle_prefix, abs(angle), '°')
+
+  # format-specific fields
+  gps = gps_time(pt)
+  if !ismissing(gps)
+    print(io, ", GPS time = ", gps)
+  end
+  color = color_channels(pt)
+  if !ismissing(color)
+    print(io, ", color = #")
+    print(io, uppercase(join(string(b, base = 16, pad = 2) for b in color)))
+  end
+  waveform = waveform_packet(pt)
+  if !ismissing(waveform)
+    print(io, ", waveform packet = ", waveform)
+  end
+
+  iszero(user_data(pt)) || print(io, ", user data = ", user_data(pt))
+  print(io, ", source ID = ", source_id(pt))
+  if !iszero(N)
+    bytes = map(b -> string(b, base = 16, pad = 2), extra_bytes(pt))
+    print(io, ", extra bytes = 0x", join(bytes))
+  end
+  print(io, ")")
+end
+
 pdrf_number(::Type{<:PointRecord{F}}) where F = F
 pdrf_nonstandard_bytes(::Type{<:PointRecord{F,N}}) where {F,N} = N
 
