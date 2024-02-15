@@ -1,5 +1,5 @@
 abstract type PointRecord{F,N} end
-abstract type LegacyPointRecord{F,N} <: PointRecord{F,N} end
+const LegacyPointRecord{N} = Union{PointRecord{0,N},PointRecord{1,N},PointRecord{2,N},PointRecord{3,N},PointRecord{4,N},PointRecord{5,N}}
 
 const WaveformPacket = Tuple{UInt8,UInt64,UInt32,Float32,Float32,Float32,Float32}
 
@@ -7,7 +7,7 @@ struct UnknownPointRecord{F,N} <: PointRecord{F,N}
   data::NTuple{N,UInt8}
 end
 
-struct PointRecord0{N} <: LegacyPointRecord{0,N}
+struct PointRecord0{N} <: PointRecord{0,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -19,7 +19,7 @@ struct PointRecord0{N} <: LegacyPointRecord{0,N}
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord1{N} <: LegacyPointRecord{1,N}
+struct PointRecord1{N} <: PointRecord{1,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -33,7 +33,7 @@ struct PointRecord1{N} <: LegacyPointRecord{1,N}
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord2{N} <: LegacyPointRecord{2,N}
+struct PointRecord2{N} <: PointRecord{2,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -47,7 +47,7 @@ struct PointRecord2{N} <: LegacyPointRecord{2,N}
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord3{N} <: LegacyPointRecord{3,N}
+struct PointRecord3{N} <: PointRecord{3,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -62,7 +62,7 @@ struct PointRecord3{N} <: LegacyPointRecord{3,N}
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord4{N} <: LegacyPointRecord{4,N}
+struct PointRecord4{N} <: PointRecord{4,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -77,7 +77,7 @@ struct PointRecord4{N} <: LegacyPointRecord{4,N}
   extra_bytes::NTuple{N,UInt8}
 end
 
-struct PointRecord5{N} <: LegacyPointRecord{5,N}
+struct PointRecord5{N} <: PointRecord{5,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
@@ -172,14 +172,18 @@ end
 integer_coordinates(pt) = pt.coords
 intensity(pt) = pt.intensity
 encoded_attributes(pt) = pt.attributes
+encoded_attributes(::Type{T}, pt) where T = (@assert typeof(pt.attributes) == T; pt.attributes)
 integer_scan_angle(pt) = pt.scan_angle
+integer_scan_angle(::Type{T}, pt) where T = (@assert typeof(pt.scan_angle) == T; pt.scan_angle)
 user_data(pt) = pt.user_data
 source_id(pt) = pt.source_id
 extra_bytes(pt) = pt.extra_bytes
+extra_bytes(::Type{T}, pt) where T = (@assert typeof(pt.extra_bytes) == T; pt.extra_bytes)
 
 # return missing for formats that do not have a field
 gps_time(pt) = hasfield(typeof(pt), :gps_time) ? pt.gps_time : missing
 color_channels(pt) = hasfield(typeof(pt), :color_channels) ? pt.color_channels : missing
+color_channels(::Type{T}, pt) where T = (@assert typeof(pt.color_channels) == T; pt.color_channels)
 waveform_packet(pt) = hasfield(typeof(pt), :waveform_packet) ? pt.waveform_packet : missing
 
 # decode attribute bits for legacy formats
@@ -193,6 +197,7 @@ is_synthetic(pt::LegacyPointRecord) = !iszero(pt.attributes[2] & 0b00100000) # b
 is_key_point(pt::LegacyPointRecord) = !iszero(pt.attributes[2] & 0b01000000) # bit 6
 is_withheld(pt::LegacyPointRecord) = !iszero(pt.attributes[2] & 0b10000000) # bit 7
 is_overlap(pt::LegacyPointRecord) = classification(pt) == 12
+scanner_channel(::LegacyPointRecord) = missing
 
 # decode attribute bits for newer formats
 # TODO: decide whether classification(pt) == 12 should also be treated as overlap
@@ -218,8 +223,42 @@ function scan_angle(pt::PointRecord)
   pt.scan_angle * 0.006
 end
 
+core_fields(pt) = core_fields(typeof(pt), pt)
+core_fields(::Type{<:LegacyPointRecord}, pt) = (integer_coordinates(pt), intensity(pt), encoded_attributes(NTuple{2,UInt8}, pt), integer_scan_angle(Int8, pt), user_data(pt), source_id(pt))
+core_fields(::Type{<:PointRecord}, pt) = (integer_coordinates(pt), intensity(pt), encoded_attributes(NTuple{3,UInt8}, pt), user_data(pt), integer_scan_angle(Int16, pt), source_id(pt), gps_time(pt))
+
+distinct_fields(pt) = distinct_fields(typeof(pt), pt)
+distinct_fields(::Type{<:PointRecord{0}}, pt) = ()
+distinct_fields(::Type{<:PointRecord{1}}, pt) = (gps_time(pt),)
+distinct_fields(::Type{<:PointRecord{2}}, pt) = (color_channels(NTuple{3,UInt16}, pt),)
+distinct_fields(::Type{<:PointRecord{3}}, pt) = (gps_time(pt), color_channels(NTuple{3,UInt16}, pt))
+distinct_fields(::Type{<:PointRecord{4}}, pt) = (gps_time(pt), waveform_packet(pt))
+distinct_fields(::Type{<:PointRecord{5}}, pt) = (gps_time(pt), color_channels(NTuple{3,UInt16}, pt), waveform_packet(pt))
+distinct_fields(::Type{<:PointRecord{6}}, pt) = ()
+distinct_fields(::Type{<:PointRecord{7}}, pt) = (color_channels(NTuple{3,UInt16}, pt),)
+distinct_fields(::Type{<:PointRecord{8}}, pt) = (color_channels(NTuple{4,UInt16}, pt),)
+distinct_fields(::Type{<:PointRecord{9}}, pt) = (waveform_packet(pt),)
+distinct_fields(::Type{<:PointRecord{10}}, pt) = (color_channels(NTuple{4,UInt16}, pt), waveform_packet(pt))
+
+all_fields(pt) = all_fields(typeof(pt), pt)
+all_fields(T::Type{<:PointRecord{F,N}}, pt) where {F,N} = (core_fields(T, pt)..., distinct_fields(T, pt)..., extra_bytes(NTuple{N,UInt8}, pt))
+all_fields(::Type{<:UnknownPointRecord}, pt) = (pt.data,)
+
+function Base.show(io::Base.IO, ::Type{<:UnknownPointRecord{F,N}}) where {F,N}
+  print(io, "UnknownPointRecord{", F, ',', N, '}')
+end
+
 function Base.show(io::Base.IO, ::Type{<:PointRecord{F,N}}) where {F,N}
   print(io, "PointRecord{", F, iszero(N) ? "" : ",$N", "}")
+end
+
+function Base.show(io::Base.IO, pt::UnknownPointRecord)
+  bytes = map(b -> string(b, base = 16, pad = 2), pt.data)
+  if get(io, :typeinfo, Any) == typeof(pt)
+    print(io, "0x", join(bytes))
+  else
+    print(io, typeof(pt), "(0x", join(bytes), ")")
+  end
 end
 
 function Base.show(io::Base.IO, pt::PointRecord{F,N}) where {F,N}
@@ -245,19 +284,15 @@ function Base.show(io::Base.IO, pt::PointRecord{F,N}) where {F,N}
   print(io, ", scan angle = ", angle_prefix, abs(angle), '°')
 
   # format-specific fields
+  channel = scanner_channel(pt)
+  ismissing(channel) || print(io, ", scanner channel = ", channel)
   gps = gps_time(pt)
-  if !ismissing(gps)
-    print(io, ", GPS time = ", gps)
-  end
+  ismissing(gps) || print(io, ", GPS time = ", gps)
   color = color_channels(pt)
-  if !ismissing(color)
-    print(io, ", color = #")
-    print(io, uppercase(join(string(b, base = 16, pad = 2) for b in color)))
-  end
+  ismissing(color)
+  ismissing(gps) || print(io, ", color = ", color)
   waveform = waveform_packet(pt)
-  if !ismissing(waveform)
-    print(io, ", waveform packet = ", waveform)
-  end
+  ismissing(waveform) || print(io, ", waveform packet = ", waveform)
 
   iszero(user_data(pt)) || print(io, ", user data = ", user_data(pt))
   print(io, ", source ID = ", source_id(pt))
@@ -268,6 +303,40 @@ function Base.show(io::Base.IO, pt::PointRecord{F,N}) where {F,N}
   print(io, ")")
 end
 
+integer_coordinates(io::Base.IO) = ntuple(_ -> read(io, Int32), 3)
+intensity(io::Base.IO) = read(io, UInt16)
+encoded_attributes(::Type{NTuple{N,UInt8}}, io::Base.IO) where N = ntuple(_ -> read(io, UInt8), N)
+integer_scan_angle(::Type{T}, io::Base.IO) where {T<:Union{Int8,Int16}} = read(io, T)
+user_data(io::Base.IO) = read(io, UInt8)
+source_id(io::Base.IO) = read(io, UInt16)
+gps_time(io::Base.IO) = read(io, Float64)
+waveform_packet(io::Base.IO) = map(read(io, T), (UInt8, UInt64, UInt32, Float32, Float32, Float32, Float32))
+function color_channels(::Type{NTuple{N,UInt16}}, io::Base.IO) where N
+  @assert N == 3 || N == 4
+  ntuple(_ -> read(io, UInt16), N)
+end
+extra_bytes(::Type{NTuple{N,UInt8}}, io::Base.IO) where N = ntuple(_ -> read(io, UInt8), N)
+
+# do not try to convert point to itself (needed to override method below)
+Base.convert(::Type{T}, pt::T) where {T<:PointRecord} = pt
+Base.convert(::Type{T}, pt) where {T<:PointRecord} = T(all_fields(T, pt)...)
+
+function Base.read(io::Base.IO, ::Type{UnknownPointRecord{F,N}}) where {F,N}
+  UnknownPointRecord{F,N}(ntuple(_ -> read(io, UInt8), N))
+end
+
+Base.read(io::Base.IO, ::Type{T}) where {T<:PointRecord} = T(all_fields(T, io)...)
+
+function Base.write(io::Base.IO, pt::T) where {T<:PointRecord}
+  for field in all_fields(pt)
+    if field isa Tuple
+      foreach(val -> write(io, val), field)
+    else
+      write(io, field)
+    end
+  end
+end
+
 pdrf_number(::Type{<:PointRecord{F}}) where F = F
 pdrf_nonstandard_bytes(::Type{<:PointRecord{F,N}}) where {F,N} = N
 
@@ -276,139 +345,6 @@ function pdrf_description(::Type{UnknownPointRecord{F,N}}) where {F,N}
 end
 function pdrf_description(::Type{<:PointRecord{F,N}}) where {F,N}
   string("PDRF ", F, iszero(N) ? "" : " with $N extra bytes")
-end
-
-function Base.read(io::Base.IO, ::Type{UnknownPointRecord{F,N}}) where {F,N}
-  UnknownPointRecord{F,N}(ntuple(_ -> read(io, UInt8), N))
-end
-
-read_core_legacy(io) = (
-  ntuple(_ -> read(io, Int32), 3),
-  read(io, UInt16),
-  ntuple(_ -> read(io, UInt8), 2),
-  read(io, Int8),
-  read(io, UInt8),
-  read(io, UInt16),
-)
-
-read_core(io) = (
-  ntuple(_ -> read(io, Int32), 3),
-  read(io, UInt16),
-  ntuple(_ -> read(io, UInt8), 3),
-  read(io, UInt8),
-  read(io, Int16),
-  read(io, UInt16),
-  read(io, Float64),
-)
-
-read_waveform(io) = (
-  read(io, UInt8),
-  read(io, UInt64),
-  read(io, UInt32),
-  read(io, Float32),
-  ntuple(_ -> read(io, Float32), 3),
-)
-
-function Base.read(io::Base.IO, ::Type{PointRecord0{N}}) where {N}
-  PointRecord0{N}(
-    read_core_legacy(io)...,
-    ntuple(_ -> read(io, UInt8), N),
-  )
-end
-
-function Base.read(io::Base.IO, ::Type{PointRecord1{N}}) where {N}
-  PointRecord1{N}(
-    read_core_legacy(io)...,
-    read(io, Float64),
-    ntuple(_ -> read(io, UInt8), N),
-  )
-end
-
-function Base.read(io::Base.IO, ::Type{PointRecord2{N}}) where {N}
-  PointRecord2{N}(
-    read_core_legacy(io)...,
-    ntuple(_ -> read(io, UInt16), 3),
-    ntuple(_ -> read(io, UInt8), N),
-  )
-end
-
-function Base.read(io::Base.IO, ::Type{PointRecord3{N}}) where {N}
-  PointRecord3{N}(
-    read_core_legacy(io)...,
-    read(io, Float64),
-    ntuple(_ -> read(io, UInt16), 3),
-    ntuple(_ -> read(io, UInt8), N),
-  )
-end
-
-function Base.read(io::Base.IO, ::Type{PointRecord4{N}}) where {N}
-  PointRecord4{N}(
-    read_core_legacy(io)...,
-    read(io, Float64),
-    read_waveform(io)...,
-    ntuple(_ -> read(io, UInt8), N),
-  )
-end
-
-function Base.read(io::Base.IO, ::Type{PointRecord5{N}}) where {N}
-  PointRecord5{N}(
-    read_core_legacy(io)...,
-    read(io, Float64),
-    ntuple(_ -> read(io, UInt16), 3),
-    read_waveform(io)...,
-    ntuple(_ -> read(io, UInt8), N),
-  )
-end
-
-function Base.read(io::Base.IO, ::Type{PointRecord6{N}}) where {N}
-  PointRecord6{N}(
-    read_core(io)...,
-    ntuple(_ -> read(io, UInt8), N),
-  )
-end
-
-function Base.read(io::Base.IO, ::Type{PointRecord7{N}}) where {N}
-  PointRecord7{N}(
-    read_core(io)...,
-    ntuple(_ -> read(io, UInt16), 3),
-    ntuple(_ -> read(io, UInt8), N),
-  )
-end
-
-function Base.read(io::Base.IO, ::Type{PointRecord8{N}}) where {N}
-  PointRecord8{N}(
-    read_core(io)...,
-    ntuple(_ -> read(io, UInt16), 4),
-    ntuple(_ -> read(io, UInt8), N),
-  )
-end
-
-function Base.read(io::Base.IO, ::Type{PointRecord9{N}}) where {N}
-  PointRecord9{N}(
-    read_core(io)...,
-    read_waveform(io)...,
-    ntuple(_ -> read(io, UInt8), N),
-  )
-end
-
-function Base.read(io::Base.IO, ::Type{PointRecord10{N}}) where {N}
-  PointRecord10{N}(
-    read_core(io)...,
-    ntuple(_ -> read(io, UInt16), 4),
-    read_waveform(io)...,
-    ntuple(_ -> read(io, UInt8), N),
-  )
-end
-
-function Base.write(io::Base.IO, pt::T) where {T<:PointRecord}
-  for fname in fieldnames(T)
-    data = getfield(pt, fname)
-    if data isa Tuple
-      foreach(val -> write(io, val), data)
-    else
-      write(io, data)
-    end
-  end
 end
 
 function point_record_type(pdrf, bytes)
