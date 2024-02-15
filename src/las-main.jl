@@ -63,9 +63,10 @@ function Base.show(io::Base.IO, las::LAS)
   print(io, ")")
 
   pad = 14
-  print(io, rpad("\n  Source ID", pad), "=> ", iszero(las.source_id) ? "(empty)" : string(las.source_id))
+  print(io, rpad("\n  Source ID", pad), "=> ")
+  print(io, iszero(las.source_id) ? "(empty)" : string(las.source_id))
   print(io, rpad("\n  Project ID", pad), "=> ")
-  show(io, las.project_id)
+  print(io, las.project_id)
   print(io, rpad("\n  System ID", pad), "=> \"", las.system_id, "\"")
   print(io, rpad("\n  Software ID", pad), "=> \"", las.software_id, "\"")
 
@@ -73,7 +74,7 @@ function Base.show(io::Base.IO, las::LAS)
   if !iszero(nextra)
     limit = nextra > 8 ? 6 : nextra
     print(io, rpad("\n  Extra Data", pad), "=> ")
-    print(io, "[", join(("0x" * uppercase(string(b, base = 16, pad = 2)) for b in las.extra_data[1:limit]), ", "))
+    print(io, "[", join((sprint(show, b) for b in las.extra_data[1:limit]), ", "))
     nextra > limit && print(io, " … (", nextra - limit, " more bytes)")
     print(io, "]")
   end
@@ -95,9 +96,7 @@ function read_las_signature(io)
   end
 end
 
-function write_las_signature(io)
-  write(io, UInt8('L'), UInt8('A'), UInt8('S'), UInt8('F'))
-end
+write_las_signature(io) = write(io, UInt8('L'), UInt8('A'), UInt8('S'), UInt8('F'))
 
 Base.read(filename::AbstractString, ::Type{LAS}) = LAS(filename)
 Base.read(io::Base.IO, ::Type{LAS}) = LAS(io)
@@ -115,7 +114,7 @@ function LAS(io::Base.IO; force_laszip = false)
   # parse global encoding bit field
   encoding = read(io, UInt16)
   if !iszero(encoding >> 5)
-    bits = string(encoding >> 5, base = 2, pad = 11)
+    bits = string(encoding >> 5; base = 2, pad = 11)
     @warn "Reserved bits 5–16 set in global encoding: $(bits)xxxxx"
   end
   has_adjusted_standard_gps_time = isodd(encoding)
@@ -296,7 +295,7 @@ function LAS(io::Base.IO; force_laszip = false)
     points
   end
 
-  LAS{typeof(points), typeof(vlrs)}(
+  LAS{typeof(points),typeof(vlrs)}(
     points,
     vlrs,
     extra_data,
@@ -325,12 +324,15 @@ end
 
 function Base.write(io::Base.IO, las::LAS)
   major_version, minor_version = las.version
-  major_version == 1 || error("Unsupported major LAS version v$major_version.$minor_version")
-  minor_version <= 4 || error("Unsupported minor LAS version v$major_version.$minor_version")
+  major_version == 1 ||
+    error("Unsupported major LAS version v$major_version.$minor_version")
+  minor_version <= 4 ||
+    error("Unsupported minor LAS version v$major_version.$minor_version")
 
   write_las_signature(io)
   write(io, las.source_id)
-  encoding = UInt16(las.has_adjusted_standard_gps_time) |
+  encoding =
+    UInt16(las.has_adjusted_standard_gps_time) |
     UInt16(las.has_internal_waveform) << 1 |
     UInt16(las.has_external_waveform) << 2 |
     UInt16(las.has_synthetic_return_numbers) << 3 |
@@ -341,7 +343,7 @@ function Base.write(io::Base.IO, las::LAS)
   write(io, string_to_bytes(las.system_id, 32))
   write(io, string_to_bytes(las.software_id, 32))
   write(io, las.creation_day...)
-  header_size = (227, 227, 227, 235, 375)[minor_version + 1]
+  header_size = (227, 227, 227, 235, 375)[minor_version+1]
   write(io, UInt16(header_size))
   vlr_size = sum(54 + length(vlr.data) for vlr in las.vlrs; init = 0)
   write(io, UInt32(header_size + vlr_size + length(las.extra_data)))
@@ -350,7 +352,9 @@ function Base.write(io::Base.IO, las::LAS)
   pdrf = pdrf_number(eltype(las))
   write(io, UInt8(pdrf))
   write(io, UInt16(sum(sizeof(t) for t in fieldtypes(eltype(las)))))
-    if (minor_version <= 1 && pdrf > 1) || (minor_version <= 2 && pdrf > 3) || (minor_version <= 3 && pdrf > 5)
+  if (minor_version <= 1 && pdrf > 1) ||
+     (minor_version <= 2 && pdrf > 3) ||
+     (minor_version <= 3 && pdrf > 5)
     error("Point Data Record Format $pdrf is not allowed in LAS v1.$(minor_version)")
   end
 

@@ -6,7 +6,15 @@ function laszip_version()
   minor = Ref{Cuchar}()
   revision = Ref{Cushort}()
   build = Ref{Cuint}()
-  rval = ccall((:laszip_get_version, laszip), Int32, (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt16}, Ptr{UInt32}), major, minor, revision, build)
+  rval = ccall(
+    (:laszip_get_version, laszip),
+    Int32,
+    (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt16}, Ptr{UInt32}),
+    major,
+    minor,
+    revision,
+    build,
+  )
   iszero(rval) || error("Could not determine LASzip version ($rval)")
   VersionNumber(major[], minor[], revision[], (build[],))
 end
@@ -16,7 +24,7 @@ struct LASzipPoint
   coords::NTuple{3,Int32}
   intensity::UInt16
   attributes::NTuple{2,UInt8}
-  scan_angle::Int8;
+  scan_angle::Int8
   user_data::UInt8
   source_id::UInt16
   # core fields introduced in v1.4
@@ -63,8 +71,8 @@ function waveform_packet(pt::LASzipPoint)
   w7 = reinterpret(Float32, pt[26:29])
   (w1, w2, w3, w4, w5, w6, w7)
 end
-color_channels(::Type{NTuple{N,UInt16}}, pt::LASzipPoint) where N = pt.color_channels[1:N]
-function extra_bytes(::Type{NTuple{N,UInt8}}, pt::LASzipPoint) where N
+color_channels(::Type{NTuple{N,UInt16}}, pt::LASzipPoint) where {N} = pt.color_channels[1:N]
+function extra_bytes(::Type{NTuple{N,UInt8}}, pt::LASzipPoint) where {N}
   @assert N isa Int # do not use non-standard integers as type parameter
   @assert pt.extra_bytes_count == N
   eb = reinterpret(Ptr{NTuple{N,UInt8}}, pt.extra_bytes)
@@ -86,12 +94,26 @@ function LASzipReader(filename, ::Type{T}, count) where {T}
   finalizer(r -> close_reader(r[], filename), reader)
 
   is_compressed = Ref{Cint}(0)
-  rval = ccall((:laszip_open_reader, laszip), Int32, (Ptr{Cvoid}, Ptr{UInt8}, Ptr{Cint}), reader[], filename, is_compressed)
+  rval = ccall(
+    (:laszip_open_reader, laszip),
+    Int32,
+    (Ptr{Cvoid}, Ptr{UInt8}, Ptr{Cint}),
+    reader[],
+    filename,
+    is_compressed,
+  )
   iszero(rval) || error("Could not open LASzip reader for `$filename` ($rval)")
-  iszero(is_compressed[]) && @info "Using LASzip reader even though `$filename` is not compressed"
+  iszero(is_compressed[]) &&
+    @info "Using LASzip reader even though `$filename` is not compressed"
 
   point_ptr = Ref{Ptr{LASzipPoint}}()
-  rval = ccall((:laszip_get_point_pointer, laszip), Int32, (Ptr{Cvoid}, Ref{Ptr{LASzipPoint}}), reader[], point_ptr)
+  rval = ccall(
+    (:laszip_get_point_pointer, laszip),
+    Int32,
+    (Ptr{Cvoid}, Ref{Ptr{LASzipPoint}}),
+    reader[],
+    point_ptr,
+  )
   iszero(rval) || @error("Could not get LASzip point pointer ($rval)")
   current_point = unsafe_wrap(Array, point_ptr[], 1)
 
@@ -117,15 +139,23 @@ function Base.close(laz::LASzipReader)
 end
 
 # iteration interface
-Base.iterate(laz::LASzipReader, ind::Integer = 1) = ind > laz.count ? nothing : (laz[ind], ind + 1)
-Base.eltype(::LASzipReader{T}) where T = T
+function Base.iterate(laz::LASzipReader, ind::Integer = 1)
+  ind > laz.count ? nothing : (laz[ind], ind + 1)
+end
+Base.eltype(::LASzipReader{T}) where {T} = T
 Base.length(laz::LASzipReader) = laz.count
 Base.isdone(laz::LASzipReader, ind::Integer = 1) = ind > laz.count
 
 # read-only indexing interface
 function Base.getindex(laz::LASzipReader, ind::Integer)
   if laz.current_index[] != ind - 1
-    rval = ccall((:laszip_seek_point, laszip), Int32, (Ptr{Cvoid}, Clonglong), laz.reader[], ind - 1)
+    rval = ccall(
+      (:laszip_seek_point, laszip),
+      Int32,
+      (Ptr{Cvoid}, Clonglong),
+      laz.reader[],
+      ind - 1,
+    )
     iszero(rval) || @error("Could not seek LASzip point ($rval)")
     laz.current_index[] = ind - 1
   end

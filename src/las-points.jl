@@ -1,5 +1,12 @@
 abstract type PointRecord{F,N} end
-const LegacyPointRecord{N} = Union{PointRecord{0,N},PointRecord{1,N},PointRecord{2,N},PointRecord{3,N},PointRecord{4,N},PointRecord{5,N}}
+const LegacyPointRecord{N} = Union{
+  PointRecord{0,N},
+  PointRecord{1,N},
+  PointRecord{2,N},
+  PointRecord{3,N},
+  PointRecord{4,N},
+  PointRecord{5,N},
+}
 
 const WaveformPacket = Tuple{UInt8,UInt64,UInt32,Float32,Float32,Float32,Float32}
 
@@ -172,18 +179,27 @@ end
 integer_coordinates(pt) = pt.coords
 intensity(pt) = pt.intensity
 encoded_attributes(pt) = pt.attributes
-encoded_attributes(::Type{T}, pt) where T = (@assert typeof(pt.attributes) == T; pt.attributes)
+function encoded_attributes(::Type{T}, pt) where {T}
+  @assert typeof(pt.attributes) == T
+  pt.attributes
+end
 integer_scan_angle(pt) = pt.scan_angle
-integer_scan_angle(::Type{T}, pt) where T = (@assert typeof(pt.scan_angle) == T; pt.scan_angle)
+function integer_scan_angle(::Type{T}, pt) where {T}
+  @assert typeof(pt.scan_angle) == T
+  pt.scan_angle
+end
 user_data(pt) = pt.user_data
 source_id(pt) = pt.source_id
 extra_bytes(pt) = pt.extra_bytes
-extra_bytes(::Type{T}, pt) where T = (@assert typeof(pt.extra_bytes) == T; pt.extra_bytes)
+extra_bytes(::Type{T}, pt) where {T} = (@assert typeof(pt.extra_bytes) == T; pt.extra_bytes)
 
 # return missing for formats that do not have a field
 gps_time(pt) = hasfield(typeof(pt), :gps_time) ? pt.gps_time : missing
 color_channels(pt) = hasfield(typeof(pt), :color_channels) ? pt.color_channels : missing
-color_channels(::Type{T}, pt) where T = (@assert typeof(pt.color_channels) == T; pt.color_channels)
+function color_channels(::Type{T}, pt) where {T}
+  @assert typeof(pt.color_channels) == T
+  pt.color_channels
+end
 waveform_packet(pt) = hasfield(typeof(pt), :waveform_packet) ? pt.waveform_packet : missing
 
 # decode attribute bits for legacy formats
@@ -219,29 +235,57 @@ function scan_angle(pt::LegacyPointRecord)
   pt.scan_angle * 1.0
 end
 function scan_angle(pt::PointRecord)
-  -30_000 <= pt.scan_angle <= 30_000 || @error "Scan angle outside the valid range of −180° to +180°"
+  -30_000 <= pt.scan_angle <= 30_000 ||
+    @error "Scan angle outside the valid range of −180° to +180°"
   pt.scan_angle * 0.006
 end
 
 core_fields(pt) = core_fields(typeof(pt), pt)
-core_fields(::Type{<:LegacyPointRecord}, pt) = (integer_coordinates(pt), intensity(pt), encoded_attributes(NTuple{2,UInt8}, pt), integer_scan_angle(Int8, pt), user_data(pt), source_id(pt))
-core_fields(::Type{<:PointRecord}, pt) = (integer_coordinates(pt), intensity(pt), encoded_attributes(NTuple{3,UInt8}, pt), user_data(pt), integer_scan_angle(Int16, pt), source_id(pt), gps_time(pt))
+function core_fields(::Type{<:LegacyPointRecord}, pt)
+  (
+    integer_coordinates(pt),
+    intensity(pt),
+    encoded_attributes(NTuple{2,UInt8}, pt),
+    integer_scan_angle(Int8, pt),
+    user_data(pt),
+    source_id(pt),
+  )
+end
+function core_fields(::Type{<:PointRecord}, pt)
+  (
+    integer_coordinates(pt),
+    intensity(pt),
+    encoded_attributes(NTuple{3,UInt8}, pt),
+    user_data(pt),
+    integer_scan_angle(Int16, pt),
+    source_id(pt),
+    gps_time(pt),
+  )
+end
 
 distinct_fields(pt) = distinct_fields(typeof(pt), pt)
 distinct_fields(::Type{<:PointRecord{0}}, pt) = ()
 distinct_fields(::Type{<:PointRecord{1}}, pt) = (gps_time(pt),)
 distinct_fields(::Type{<:PointRecord{2}}, pt) = (color_channels(NTuple{3,UInt16}, pt),)
-distinct_fields(::Type{<:PointRecord{3}}, pt) = (gps_time(pt), color_channels(NTuple{3,UInt16}, pt))
+function distinct_fields(::Type{<:PointRecord{3}}, pt)
+  (gps_time(pt), color_channels(NTuple{3,UInt16}, pt))
+end
 distinct_fields(::Type{<:PointRecord{4}}, pt) = (gps_time(pt), waveform_packet(pt))
-distinct_fields(::Type{<:PointRecord{5}}, pt) = (gps_time(pt), color_channels(NTuple{3,UInt16}, pt), waveform_packet(pt))
+function distinct_fields(::Type{<:PointRecord{5}}, pt)
+  (gps_time(pt), color_channels(NTuple{3,UInt16}, pt), waveform_packet(pt))
+end
 distinct_fields(::Type{<:PointRecord{6}}, pt) = ()
 distinct_fields(::Type{<:PointRecord{7}}, pt) = (color_channels(NTuple{3,UInt16}, pt),)
 distinct_fields(::Type{<:PointRecord{8}}, pt) = (color_channels(NTuple{4,UInt16}, pt),)
 distinct_fields(::Type{<:PointRecord{9}}, pt) = (waveform_packet(pt),)
-distinct_fields(::Type{<:PointRecord{10}}, pt) = (color_channels(NTuple{4,UInt16}, pt), waveform_packet(pt))
+function distinct_fields(::Type{<:PointRecord{10}}, pt)
+  (color_channels(NTuple{4,UInt16}, pt), waveform_packet(pt))
+end
 
 all_fields(pt) = all_fields(typeof(pt), pt)
-all_fields(T::Type{<:PointRecord{F,N}}, pt) where {F,N} = (core_fields(T, pt)..., distinct_fields(T, pt)..., extra_bytes(NTuple{N,UInt8}, pt))
+function all_fields(T::Type{<:PointRecord{F,N}}, pt) where {F,N}
+  (core_fields(T, pt)..., distinct_fields(T, pt)..., extra_bytes(NTuple{N,UInt8}, pt))
+end
 all_fields(::Type{<:UnknownPointRecord}, pt) = (pt.data,)
 
 function Base.show(io::Base.IO, ::Type{<:UnknownPointRecord{F,N}}) where {F,N}
@@ -253,7 +297,7 @@ function Base.show(io::Base.IO, ::Type{<:PointRecord{F,N}}) where {F,N}
 end
 
 function Base.show(io::Base.IO, pt::UnknownPointRecord)
-  bytes = map(b -> string(b, base = 16, pad = 2), pt.data)
+  bytes = map(b -> string(b; base = 16, pad = 2), pt.data)
   if get(io, :typeinfo, Any) == typeof(pt)
     print(io, "0x", join(bytes))
   else
@@ -297,7 +341,7 @@ function Base.show(io::Base.IO, pt::PointRecord{F,N}) where {F,N}
   iszero(user_data(pt)) || print(io, ", user data = ", user_data(pt))
   print(io, ", source ID = ", source_id(pt))
   if !iszero(N)
-    bytes = map(b -> string(b, base = 16, pad = 2), extra_bytes(pt))
+    bytes = map(b -> string(b; base = 16, pad = 2), extra_bytes(pt))
     print(io, ", extra bytes = 0x", join(bytes))
   end
   print(io, ")")
@@ -305,17 +349,23 @@ end
 
 integer_coordinates(io::Base.IO) = ntuple(_ -> read(io, Int32), 3)
 intensity(io::Base.IO) = read(io, UInt16)
-encoded_attributes(::Type{NTuple{N,UInt8}}, io::Base.IO) where N = ntuple(_ -> read(io, UInt8), N)
+function encoded_attributes(::Type{NTuple{N,UInt8}}, io::Base.IO) where {N}
+  ntuple(_ -> read(io, UInt8), N)
+end
 integer_scan_angle(::Type{T}, io::Base.IO) where {T<:Union{Int8,Int16}} = read(io, T)
 user_data(io::Base.IO) = read(io, UInt8)
 source_id(io::Base.IO) = read(io, UInt16)
 gps_time(io::Base.IO) = read(io, Float64)
-waveform_packet(io::Base.IO) = map(read(io, T), (UInt8, UInt64, UInt32, Float32, Float32, Float32, Float32))
-function color_channels(::Type{NTuple{N,UInt16}}, io::Base.IO) where N
+function waveform_packet(io::Base.IO)
+  map(read(io, T), (UInt8, UInt64, UInt32, Float32, Float32, Float32, Float32))
+end
+function color_channels(::Type{NTuple{N,UInt16}}, io::Base.IO) where {N}
   @assert N == 3 || N == 4
   ntuple(_ -> read(io, UInt16), N)
 end
-extra_bytes(::Type{NTuple{N,UInt8}}, io::Base.IO) where N = ntuple(_ -> read(io, UInt8), N)
+function extra_bytes(::Type{NTuple{N,UInt8}}, io::Base.IO) where {N}
+  ntuple(_ -> read(io, UInt8), N)
+end
 
 # do not try to convert point to itself (needed to override method below)
 Base.convert(::Type{T}, pt::T) where {T<:PointRecord} = pt
@@ -337,7 +387,7 @@ function Base.write(io::Base.IO, pt::T) where {T<:PointRecord}
   end
 end
 
-pdrf_number(::Type{<:PointRecord{F}}) where F = F
+pdrf_number(::Type{<:PointRecord{F}}) where {F} = F
 pdrf_nonstandard_bytes(::Type{<:PointRecord{F,N}}) where {F,N} = N
 
 function pdrf_description(::Type{UnknownPointRecord{F,N}}) where {F,N}
@@ -349,7 +399,19 @@ end
 
 function point_record_type(pdrf, bytes)
   if pdrf in 0:10
-    T = (PointRecord0, PointRecord1, PointRecord2, PointRecord3, PointRecord4, PointRecord5, PointRecord6, PointRecord7, PointRecord8, PointRecord9, PointRecord10)[pdrf + 1]
+    T = (
+      PointRecord0,
+      PointRecord1,
+      PointRecord2,
+      PointRecord3,
+      PointRecord4,
+      PointRecord5,
+      PointRecord6,
+      PointRecord7,
+      PointRecord8,
+      PointRecord9,
+      PointRecord10,
+    )[pdrf+1]
     nextra = bytes - sum(sizeof(t) for t in fieldtypes(T{0}))
     nextra >= 0 || error("Record length $bytes is too small for point format $pdrf")
     T{Int(nextra)}

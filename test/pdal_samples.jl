@@ -15,7 +15,8 @@ const pdal_samples = [
   "las/bad-geotiff-keys.las" => (; legacy_counts = 1),
   "las/epsg_4326.las" => (; legacy_counts = 2),
   "las/extrabytes.las",
-  "las/garbage_nVariableLength.las" => (; global_encoding = 2, legacy_counts = 3, point_data = 14, vlr_count = 4),
+  "las/garbage_nVariableLength.las" =>
+    (; global_encoding = 2, legacy_counts = 3, point_data = 14, vlr_count = 4),
   "las/gps-time-nan.las",
   "las/hextest.las",
   "las/interesting.las" => (; vlr_reserved = 10),
@@ -52,12 +53,16 @@ const pdal_samples = [
   "las/utm17.las",
   "las/wontcompress3.las" => (; legacy_counts = 6),
   "laz/autzen_trim.laz" => (; pdrf_number = 1, point_data = 3737654, vlr_reserved = 2),
-  "laz/simple-laszip-compressor-version-1.2r0.laz" => (; pdrf_number = 1, point_data = 36079, vlr_reserved = 2),
+  "laz/simple-laszip-compressor-version-1.2r0.laz" =>
+    (; pdrf_number = 1, point_data = 36079, vlr_reserved = 2),
   "laz/simple.laz" => (; pdrf_number = 1, point_data = 36146, vlr_reserved = 2),
   "laszip/basefile.las",
-  "laszip/laszip-generated.laz" => (; pdrf_number = 1, point_data = 36146, vlr_reserved = 2),
-  "laszip/laszip-generated_with2bytespadding.laz" => (; pdrf_number = 1, point_data = 36146, vlr_reserved = 2),
-  "laszip/liblas-generated.laz" => (; pdrf_number = 1, point_data = 36141, vlr_reserved = 2),
+  "laszip/laszip-generated.laz" =>
+    (; pdrf_number = 1, point_data = 36146, vlr_reserved = 2),
+  "laszip/laszip-generated_with2bytespadding.laz" =>
+    (; pdrf_number = 1, point_data = 36146, vlr_reserved = 2),
+  "laszip/liblas-generated.laz" =>
+    (; pdrf_number = 1, point_data = 36141, vlr_reserved = 2),
 ]
 
 """
@@ -114,7 +119,7 @@ function interpret_mismatch(mismatch, las)
   classify_mismatch(k) = (classified[k] = get(classified, k, 0) + 1)
   unknown_mismatch(x) = push!(other, x)
 
-  header_size = (227, 227, 227, 235, 375)[las.version[2] + 1]
+  header_size = (227, 227, 227, 235, 375)[las.version[2]+1]
   vlr_sizes = [54 + length(vlr.data) for vlr in las.vlrs]
   vlr_offsets = [header_size + sum(vlr_sizes[1:i-1]) for i in 1:length(las.vlrs)]
   point_offset = header_size + sum(vlr_sizes) + length(las.extra_data)
@@ -132,7 +137,7 @@ function interpret_mismatch(mismatch, las)
       classify_mismatch(:bounding_box)
     elseif ind in 248:375 && las.version[2] >= 4
       classify_mismatch(:point_counts)
-    elseif any((ind == o+1 || ind == o+2) for o in vlr_offsets)
+    elseif any((ind == o + 1 || ind == o + 2) for o in vlr_offsets)
       classify_mismatch(:vlr_reserved)
     elseif ind > point_offset
       classify_mismatch(:point_data)

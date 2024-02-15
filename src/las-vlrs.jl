@@ -13,7 +13,12 @@ function Base.show(io::Base.IO, vlr::VariableLengthRecord)
   print(io, " (", length(vlr.data), " bytes)")
 end
 
-function Base.read(io::Base.IO, ::Type{VariableLengthRecord}; max_bytes = nothing, version = nothing)
+function Base.read(
+  io::Base.IO,
+  ::Type{VariableLengthRecord};
+  max_bytes = nothing,
+  version = nothing,
+)
 
   # check whether there are enough bytes left to read the record header
   if !isnothing(max_bytes) && max_bytes < 54
@@ -39,18 +44,18 @@ function Base.read(io::Base.IO, ::Type{VariableLengthRecord}; max_bytes = nothin
     # skip checks
   elseif version >= (1, 4)
     if !iszero(reserved)
-      rstr = uppercase(string(reserved, base = 16, pad = 4))
+      rstr = uppercase(string(reserved; base = 16, pad = 4))
       @warn "Reserved field in VLR header has non-zero value 0x$rstr"
     end
   elseif version == (1, 0)
     if reserved != 0xAABB
-      rstr = uppercase(string(reserved, base = 16, pad = 4))
+      rstr = uppercase(string(reserved; base = 16, pad = 4))
       @warn "Reserved field in VLR header has non-standard value 0x$rstr"
     end
   elseif !(iszero(reserved) || reserved == 0xAABB)
     # standards 1.1–1.3 do not specify the reserved field, but having a
     # value other than those two is unexpected enough to warrant a warning
-    rstr = uppercase(string(reserved, base = 16, pad = 4))
+    rstr = uppercase(string(reserved; base = 16, pad = 4))
     @warn "Reserved field in VLR header has non-standard value 0x$rstr"
   end
 
