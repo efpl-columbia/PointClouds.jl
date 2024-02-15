@@ -7,6 +7,7 @@ export classification, color_channels, encoded_attributes, extra_bytes, gps_time
 
 import Dates
 
+include("laszip.jl")
 include("las-util.jl")
 include("las-vlrs.jl")
 include("las-points.jl")

@@ -1,4 +1,4 @@
-mutable struct LAS{T,P,V}
+mutable struct LAS{P,V} <: PointCloud
 
   # point & VLR data can be in custom containers
   points::P
@@ -30,17 +30,28 @@ mutable struct LAS{T,P,V}
   has_well_known_text::Bool
 end
 
-Base.length(las::LAS{T,UInt64}) where {T} = las.points
-Base.length(las::LAS{T,P}) where {T,P<:AbstractVector{T}} = length(las.points)
+# iteration interface: forward to points field
+Base.iterate(las::LAS, args...) = Base.iterate(las.points, args...)
+Base.eltype(las::LAS) = Base.eltype(las.points)
+Base.length(las::LAS) = Base.length(las.points)
+Base.isdone(las::LAS, args...) = Base.isdone(las.points, args...)
 
-Base.eltype(las::LAS{T}) where {T} = T
+# read-only indexing interface: forward to points field
+Base.getindex(las::LAS, ind) = getindex(las.points, ind)
+Base.firstindex(las::LAS) = firstindex(las.points)
+Base.lastindex(las::LAS) = lastindex(las.points)
 
-Base.summary(las::LAS) = string(length(las), "-point LAS")
+Base.summary(io::Base.IO, ::Type{<:LAS}) = print(io, "LAS")
+Base.summary(io::Base.IO, ::Type{<:LAS{<:LASzipReader}}) = print(io, "LAZ")
+function Base.summary(io::Base.IO, las::LAS)
+  print(io, length(las), "-point ")
+  summary(io, typeof(las))
+end
 
-function Base.show(io::Base.IO, las::LAS{T}) where T
-  print(io, summary(las), " (")
-  print(io, "v$(las.version[1]).$(las.version[2])")
-  print(io, ", ", pdrf_description(T), ", ")
+function Base.show(io::Base.IO, las::LAS)
+  summary(io, las)
+  print(io, " (v$(las.version[1]).$(las.version[2])")
+  print(io, ", ", pdrf_description(eltype(las)), ", ")
   let (day, year) = las.creation_day
     if 1 <= day <= 366
       date = Dates.Date(year) + Dates.Day(day - 1)
@@ -69,11 +80,12 @@ function Base.show(io::Base.IO, las::LAS{T}) where T
 
   nvlr = length(las.vlrs)
   print(io, "\n  Variable-Length Records")
-  map(las.vlrs[1:min(end, 5)]) do vlr
+  nprint = nvlr > 7 ? 5 : nvlr
+  map(las.vlrs[1:nprint]) do vlr
     print(io, "\n    => ")
     show(io, vlr)
   end
-  nvlr > 5 && print("\n    => ($(nvlr - 5) more records)")
+  nvlr > nprint && print(io, "\n    => ($(nvlr - nprint) more records)")
 end
 
 function read_las_signature(io)
@@ -87,7 +99,15 @@ function write_las_signature(io)
   write(io, UInt8('L'), UInt8('A'), UInt8('S'), UInt8('F'))
 end
 
-function Base.read(io::Base.IO, ::Type{LAS})
+Base.read(filename::AbstractString, ::Type{LAS}) = LAS(filename)
+Base.read(io::Base.IO, ::Type{LAS}) = LAS(io)
+
+function LAS(filename::AbstractString; kws...)
+  # pass file name in context in case we need access to the original file
+  open(io -> LAS(IOContext(io, :filename => filename); kws...), filename)
+end
+
+function LAS(io::Base.IO; force_laszip = false)
   read_las_signature(io)
 
   source_id = read(io, UInt16)
@@ -243,26 +263,40 @@ function Base.read(io::Base.IO, ::Type{LAS})
   end
   extra_data = read(io, remaining)
 
-  # read point data, without choking on truncated files
-  pdrf = point_record_type(pdrf_type, pdrf_length)
-  points = Vector{pdrf}(undef, point_count_total)
-  for ind in 1:point_count_total
-    try
-      points[ind] = read(io, pdrf)
-    catch ex
-      ex isa EOFError || rethrow()
-      n = point_count_total - ind + 1
-      s = n > 1 ? "s" : ""
-      # TODO: check if discarded data can be added to error message
-      @error "Point data ends prematurely ($n record$s missing)"
-      resize!(points, ind - 1)
-      break
-    end
+  # check if it is a compressed LAZ file
+  # VLR mentioned in https://www.iana.org/assignments/media-types/application/vnd.laszip
+  islaz = !isnothing(get_vlr(vlrs, "laszip encoded", 22204))
+  if islaz
+    pdrf_type >= 128 || error("LAZ file has invalid point data record format")
+    pdrf_type -= 0x80
   end
 
-  eof(io) || @error "Input longer than expected"
+  # read point data, without choking on truncated files
+  pdrf = point_record_type(pdrf_type, pdrf_length)
+  points = if islaz || force_laszip
+    filename = extract_filename(io)
+    isnothing(filename) && error("Could not determine filename for LASzip")
+    LASzipReader(filename, pdrf, point_count_total)
+  else
+    points = Vector{pdrf}(undef, point_count_total)
+    for ind in 1:point_count_total
+      try
+        points[ind] = read(io, pdrf)
+      catch ex
+        ex isa EOFError || rethrow()
+        n = point_count_total - ind + 1
+        s = n > 1 ? "s" : ""
+        # TODO: check if discarded data can be added to error message
+        @error "Point data ends prematurely ($n record$s missing)"
+        resize!(points, ind - 1)
+        break
+      end
+    end
+    eof(io) || @error "Input longer than expected"
+    points
+  end
 
-  LAS{pdrf, typeof(points), typeof(vlrs)}(
+  LAS{typeof(points), typeof(vlrs)}(
     points,
     vlrs,
     extra_data,

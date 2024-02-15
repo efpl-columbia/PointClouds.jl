@@ -2,55 +2,62 @@ using Downloads: Downloads
 
 # commit pinned to PDAL v2.6.3 for reproducibility (can be bumped to current version occasionally)
 const pdal_commit = "d37b077053116f4b76d360d379dbcaf890fd4a39"
-const pdal_url = "https://github.com/PDAL/PDAL/raw/$pdal_commit/test/data/las/"
+const pdal_url = "https://github.com/PDAL/PDAL/raw/$pdal_commit/test/data/"
 const pdal_samples = [
-  "100-points.las",
-  "1.2-empty-geotiff-vlrs.las" => [:vlr_reserved => 10],
-  "1.2-with-color-clipped.las" => [:legacy_counts => 2],
-  "1.2-with-color.las",
-  "4_1.las" => [:point_counts => 2],
-  "4_6.las" => [:legacy_counts => 12],
-  "autzen_trim_7.las" => [:legacy_counts => 11],
-  "autzen_trim.las",
-  "bad-geotiff-keys.las" => [:legacy_counts => 1],
-  "epsg_4326.las" => [:legacy_counts => 2],
-  "extrabytes.las",
-  "garbage_nVariableLength.las" => [:global_encoding => 2, :legacy_counts => 3, :point_data => 14, :vlr_count => 4],
-  "gps-time-nan.las",
-  "hextest.las",
-  "interesting.las" => [:vlr_reserved => 10],
-  "lots_of_vlr.las" => [:vlr_reserved => 776],
-  "mvk-thin.las" => [:vlr_reserved => 10],
-  "noise-clean.las",
-  "noise-dirty.las",
-  "no-points.las" => [:vlr_reserved => 8],
-  "permutations/1.0_0.las" => [:vlr_reserved => 6],
-  "permutations/1.0_1.las" => [:vlr_reserved => 6],
-  "permutations/1.1_0.las",
-  "permutations/1.1_1.las",
-  "permutations/1.2_0.las",
-  "permutations/1.2_1.las",
-  "permutations/1.2_2.las",
-  "permutations/1.2_3.las",
-  "permutations/1.2-no-points.las" => [:legacy_counts => 7],
-  "prec3.las",
-  "sample_c.las" => [:bounding_box => 4, :legacy_counts => 5],
-  "sample_c_thin.las",
-  "sample_nc.las" => [:bounding_box => 4, :legacy_counts => 5],
-  "simple.las",
-  "spec_3.las",
-  "spurious.las" => [:bounding_box => 7, :vlr_reserved => 8],
-  "synthetic_test.las",
-  "test1_4.las" => [:legacy_counts => 7],
-  "test_epsg_4047.las" => [:bounding_box => 8],
-  "test_epsg_4326_axis.las",
-  "test_epsg_4326.las" => [:bounding_box => 8],
-  "test_epsg_4326x3.las",
-  "test_utm16.las",
-  "test_utm17.las",
-  "utm15.las" => [:bounding_box => 4],
-  "utm17.las",
-  "wontcompress3.las" => [:legacy_counts => 6],
+  "las/100-points.las",
+  "las/1.2-empty-geotiff-vlrs.las" => (; vlr_reserved = 10),
+  "las/1.2-with-color-clipped.las" => (; legacy_counts = 2),
+  "las/1.2-with-color.las",
+  "las/4_1.las" => (; point_counts = 2),
+  "las/4_6.las" => (; legacy_counts = 12),
+  "las/autzen_trim_7.las" => (; legacy_counts = 11),
+  "las/autzen_trim.las",
+  "las/bad-geotiff-keys.las" => (; legacy_counts = 1),
+  "las/epsg_4326.las" => (; legacy_counts = 2),
+  "las/extrabytes.las",
+  "las/garbage_nVariableLength.las" => (; global_encoding = 2, legacy_counts = 3, point_data = 14, vlr_count = 4),
+  "las/gps-time-nan.las",
+  "las/hextest.las",
+  "las/interesting.las" => (; vlr_reserved = 10),
+  "las/lots_of_vlr.las" => (; vlr_reserved = 776),
+  "las/mvk-thin.las" => (; vlr_reserved = 10),
+  "las/noise-clean.las",
+  "las/noise-dirty.las",
+  "las/no-points.las" => (; vlr_reserved = 8),
+  "las/permutations/1.0_0.las" => (; vlr_reserved = 6),
+  "las/permutations/1.0_1.las" => (; vlr_reserved = 6),
+  "las/permutations/1.1_0.las",
+  "las/permutations/1.1_1.las",
+  "las/permutations/1.2_0.las",
+  "las/permutations/1.2_1.las",
+  "las/permutations/1.2_2.las",
+  "las/permutations/1.2_3.las",
+  "las/permutations/1.2-no-points.las" => (; legacy_counts = 7),
+  "las/prec3.las",
+  "las/sample_c.las" => (; bounding_box = 4, legacy_counts = 5),
+  "las/sample_c_thin.las",
+  "las/sample_nc.las" => (; bounding_box = 4, legacy_counts = 5),
+  "las/simple.las",
+  "las/spec_3.las",
+  "las/spurious.las" => (; bounding_box = 7, vlr_reserved = 8),
+  "las/synthetic_test.las",
+  "las/test1_4.las" => (; legacy_counts = 7),
+  "las/test_epsg_4047.las" => (; bounding_box = 8),
+  "las/test_epsg_4326_axis.las",
+  "las/test_epsg_4326.las" => (; bounding_box = 8),
+  "las/test_epsg_4326x3.las",
+  "las/test_utm16.las",
+  "las/test_utm17.las",
+  "las/utm15.las" => (; bounding_box = 4),
+  "las/utm17.las",
+  "las/wontcompress3.las" => (; legacy_counts = 6),
+  "laz/autzen_trim.laz" => (; pdrf_number = 1, point_data = 3737654, vlr_reserved = 2),
+  "laz/simple-laszip-compressor-version-1.2r0.laz" => (; pdrf_number = 1, point_data = 36079, vlr_reserved = 2),
+  "laz/simple.laz" => (; pdrf_number = 1, point_data = 36146, vlr_reserved = 2),
+  "laszip/basefile.las",
+  "laszip/laszip-generated.laz" => (; pdrf_number = 1, point_data = 36146, vlr_reserved = 2),
+  "laszip/laszip-generated_with2bytespadding.laz" => (; pdrf_number = 1, point_data = 36146, vlr_reserved = 2),
+  "laszip/liblas-generated.laz" => (; pdrf_number = 1, point_data = 36141, vlr_reserved = 2),
 ]
 
 """
@@ -66,29 +73,29 @@ function check_pdal_samples(; verbose)
   dir = length(pdal_arg) == 2 ? pdal_arg[2] : mktempdir()
   verbose && println("Using directory `$(abspath(dir))` for LAS samples")
   mkpath(dir)
-  samples = map(s -> s isa String ? s => [] : s, pdal_samples)
+  samples = map(s -> s isa String ? s => (;) : s, pdal_samples)
   @testset "Check PDAL sample files in `$dir`" begin
     @testset "$sample" for (sample, expected_mismatch) in samples
-      verbose && println("→ $(sample)")
-      path_in = joinpath(dir, replace(sample, '/' => "--"))
-      isfile(path_in) || Downloads.download(pdal_url * sample, path_in)
-      path_out = tempname() * ".las"
-      @test expected_mismatch == let
-        las = if verbose
-          las = read(path_in, LAS)
-          display(las)
+      redirect_stderr(verbose ? stderr : devnull) do
+        verbose && println(stderr, "→ $(sample)")
+        path_in = joinpath(dir, replace(sample, '/' => "-"))
+        isfile(path_in) || Downloads.download(pdal_url * sample, path_in)
+        path_out = tempname() * ".las"
+        @test expected_mismatch == let
+          las = LAS(path_in)
+          println(stderr, las)
           write(path_out, las)
-          println()
-          las
-        else
-          redirect_stderr(devnull) do
-            las = read(path_in, LAS)
-            write(path_out, las)
-            las
+          mismatch = compare_files(path_in, path_out)
+          interpret_mismatch(mismatch, las)
+        end
+        if !occursin("garbage", sample)
+          @test let
+            las = LAS(path_in)
+            laz = LAS(path_in; force_laszip = true)
+            all(las[i] == laz[i] for i in 1:length(las))
           end
         end
-        mismatch = compare_files(path_in, path_out)
-        interpret_mismatch(mismatch, las)
+        println(stderr)
       end
     end
   end
@@ -103,7 +110,7 @@ function compare_files(paths...)
 end
 
 function interpret_mismatch(mismatch, las)
-  classified, other = Dict(), []
+  classified, other = Dict(), Int[]
   classify_mismatch(k) = (classified[k] = get(classified, k, 0) + 1)
   unknown_mismatch(x) = push!(other, x)
 
@@ -117,6 +124,8 @@ function interpret_mismatch(mismatch, las)
       classify_mismatch(:global_encoding)
     elseif ind in 101:104
       classify_mismatch(:vlr_count)
+    elseif ind == 105
+      classify_mismatch(:pdrf_number)
     elseif ind in 108:131
       classify_mismatch(:legacy_counts)
     elseif ind in 180:227
@@ -132,5 +141,5 @@ function interpret_mismatch(mismatch, las)
     end
   end
 
-  [sort(collect(classified)); other]
+  (; sort(collect(classified))..., (isempty(other) ? () : (:other_bytes => other,))...)
 end

@@ -1,3 +1,17 @@
+function extract_filename(io::Base.IOContext)
+  # check whether file name was passed with IOContext
+  f = get(io, :filename, nothing)
+  isnothing(f) ? extract_filename(io.io) : String(f)
+end
+
+function extract_filename(io::Base.IOStream)
+  # try determining file name from the file descriptor
+  path = "/proc/self/fd/$(fd(io))"
+  islink(path) ? readlink(path) : nothing
+end
+
+extract_filename(::Base.IO) = nothing # fallback
+
 bytes_to_string(bytes) = String(bytes[1:something(findlast(!iszero, bytes), 0)])
 
 function string_to_bytes(str, length)

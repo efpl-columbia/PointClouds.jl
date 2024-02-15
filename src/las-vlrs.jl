@@ -66,3 +66,13 @@ function Base.write(io::Base.IO, vlr::VariableLengthRecord; minor_version = 4)
   write(io, string_to_bytes(vlr.description, 32))
   write(io, vlr.data)
 end
+
+# list of user IDs: https://www.asprs.org/misc/las-key-list.html
+function get_vlr(vlrs, user_id, record_id)
+  matches = filter(vlrs) do vlr
+    vlr.user_id == user_id && vlr.record_id == record_id
+  end
+  isempty(matches) && return nothing
+  length(matches) > 1 && @warn "VLR \"$user_id[$record_id]\" is not unique, using last one"
+  matches[end]
+end
