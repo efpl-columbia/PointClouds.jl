@@ -1,6 +1,6 @@
 module IO
 
-export LAS
+export LAS, getscaling, update, update!, PointRecord
 
 # accessors for point fields
 export classification,
@@ -26,9 +26,14 @@ export classification,
   user_data,
   waveform_packet
 
-import Dates
+using Dates: Dates
+using Mmap: Mmap
+using HTTP: HTTP
+using Proj: Proj
+import ..AbstractPointCloud, ..getcrs, ..coordinates
 
 include("laszip.jl")
+include("geokeys.jl")
 include("las-util.jl")
 include("las-vlrs.jl")
 include("las-points.jl")

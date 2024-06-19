@@ -41,7 +41,7 @@ struct LASzipPoint
 end
 
 integer_coordinates(pt::LASzipPoint) = pt.coords
-intensity(pt::LASzipPoint) = pt.intensity
+intensity(::Type{UInt16}, pt::LASzipPoint) = pt.intensity
 encoded_attributes(::Type{NTuple{2,UInt8}}, pt::LASzipPoint) = pt.attributes
 function encoded_attributes(::Type{NTuple{3,UInt8}}, pt::LASzipPoint)
   a1, a2, a3 = pt.extended_attributes
@@ -79,7 +79,7 @@ function extra_bytes(::Type{NTuple{N,UInt8}}, pt::LASzipPoint) where {N}
   unsafe_load(eb)
 end
 
-struct LASzipReader{T}
+struct LASzipReader{T} <: AbstractVector{T}
   file::String
   reader::Ref{Ptr{Cvoid}}
   current_point::Vector{LASzipPoint}
@@ -139,11 +139,10 @@ function Base.close(laz::LASzipReader)
 end
 
 # iteration interface
+Base.size(laz::LASzipReader) = (laz.count,)
 function Base.iterate(laz::LASzipReader, ind::Integer = 1)
   ind > laz.count ? nothing : (laz[ind], ind + 1)
 end
-Base.eltype(::LASzipReader{T}) where {T} = T
-Base.length(laz::LASzipReader) = laz.count
 Base.isdone(laz::LASzipReader, ind::Integer = 1) = ind > laz.count
 
 # read-only indexing interface
@@ -164,6 +163,5 @@ function Base.getindex(laz::LASzipReader, ind::Integer)
   laz.current_index[] += 1
   convert(eltype(laz), laz.current_point[])
 end
-Base.getindex(laz::LASzipReader, inds::AbstractArray) = [getindex(laz, ind) for ind in inds]
-Base.firstindex(laz::LASzipReader) = 1
-Base.lastindex(laz::LASzipReader) = laz.count
+Base.getindex(laz::LASzipReader, inds::BitVector) = MaskedPoints(laz, inds)
+Base.getindex(laz::LASzipReader, inds::OrdinalRange) = IndexedPoints(laz, inds)

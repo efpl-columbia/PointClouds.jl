@@ -1,10 +1,11 @@
 module PointClouds
 
-export LAS
+export LAS, getcrs, update, update!
 
-# accessors for point fields
+# accessors for point attributes
 export classification,
   color_channels,
+  coordinates,
   encoded_attributes,
   extra_bytes,
   gps_time,
@@ -25,6 +26,11 @@ export classification,
   source_id,
   user_data,
   waveform_packet
+
+# definitions also used in other modules
+abstract type AbstractPointCloud end
+function getcrs end
+function coordinates end
 
 include("IO.jl")
 

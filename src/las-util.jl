@@ -23,6 +23,32 @@ function string_to_bytes(str, length)
   b
 end
 
+function validate_las_string(str; length = Inf)
+  isascii(str) || throw(ArgumentError("String \"$str\" contains non-ASCII characters"))
+  Base.length(str) <= length || throw(ArgumentError("String \"$str\" exceeds maximum length of $length"))
+  str
+end
+
+"""
+    las_version(v)
+
+Helper function that translates various version expressions to a pair of
+`UInt8`s, producing an error for invalid LAS versions.
+"""
+function las_version(v::VersionNumber)
+  minor = v == v"1.0" ? 0x0 :
+    v == v"1.1" ? 0x1 :
+    v == v"1.2" ? 0x2 :
+    v == v"1.3" ? 0x3 :
+    v == v"1.4" ? 0x4 :
+    throw(ArgumentError("Unknown LAS version: $v"))
+  (0x1, minor)
+end
+
+las_version(v) = las_version(VersionNumber(string(v)))
+
+las_date(d::Dates.Date) = UInt16.((Dates.dayofyear(d), Dates.year(d)))
+
 struct GUID
   p1::UInt32
   p2::UInt16
@@ -56,3 +82,5 @@ function Base.read(io::Base.IO, ::Type{GUID})
 end
 
 Base.write(io::Base.IO, guid::GUID) = write(io, guid.p1, guid.p2, guid.p3, guid.p4...)
+
+Base.zero(::Type{GUID}) = GUID(zero(UInt32), zero(UInt16), zero(UInt16), ntuple(_ -> zero(UInt8), 8))

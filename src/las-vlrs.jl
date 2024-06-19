@@ -81,3 +81,33 @@ function get_vlr(vlrs, user_id, record_id)
   length(matches) > 1 && @warn "VLR \"$user_id[$record_id]\" is not unique, using last one"
   matches[end]
 end
+
+function delete_vlr!(vlrs, user_id, record_id)
+  nvlr = length(vlrs)
+  filter!(vlrs) do vlr
+    vlr.user_id != user_id || vlr.record_id != record_id
+  end
+  length(vlrs) == nvlr && @warn "No VLR \"$user_id[$record_id]\" found"
+  vlrs
+end
+
+function getcrs(::Type{<:AbstractString}, vlrs::AbstractVector)
+  vlr_transform = get_vlr(vlrs, "LASF_Projection", 2111)
+  vlr_crs = get_vlr(vlrs, "LASF_Projection", 2112)
+  isnothing(vlr_crs) && return nothing
+  # TODO: include transform in output
+  isnothing(vlr_transform) || @error "Ignoring WKT math transform (not implemented)"
+  ind = something(findlast(!iszero, vlr_crs.data), 0)
+  String(vlr_crs.data[1:ind])
+end
+
+function getcrs(::Type{<:GeoKeys}, vlrs::AbstractVector)
+  vlr_directory = get_vlr(vlrs, "LASF_Projection", 34735)
+  vlr_doubles = get_vlr(vlrs, "LASF_Projection", 34736)
+  vlr_ascii = get_vlr(vlrs, "LASF_Projection", 34737)
+  isnothing(vlr_directory) && return nothing
+  params = []
+  isnothing(vlr_doubles) || push!(params, :double_params => IOBuffer(vlr_doubles.data))
+  isnothing(vlr_ascii) || push!(params, :ascii_params => IOBuffer(vlr_ascii.data))
+  read_geokeys(IOBuffer(vlr_directory.data); params...)
+end
