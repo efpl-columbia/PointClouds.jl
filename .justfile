@@ -1,5 +1,6 @@
 # This file contains recipes for the `just` command runner.
 # See https://github.com/casey/just for more information.
+set positional-arguments
 
 formatter_version := "1.0.45"
 
@@ -12,13 +13,12 @@ repl:
   using PointClouds
 
 # Run automated tests with (optional) arguments
-test *ARGS:
+test *params:
   #!/usr/bin/env julia
   import Pkg
   Pkg.activate(".")
-  args = string.(split("{{ARGS}}"))
   # try-block used to suppress unnecessary stacktrace in output
-  try Pkg.test(test_args = args) catch end
+  try Pkg.test(test_args = ARGS) catch end
 
 # Apply formatting rules to code and tests
 format:

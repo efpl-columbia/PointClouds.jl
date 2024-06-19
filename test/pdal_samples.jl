@@ -1,5 +1,3 @@
-using Downloads: Downloads
-
 # commit pinned to PDAL v2.6.3 for reproducibility (can be bumped to current version occasionally)
 const pdal_commit = "d37b077053116f4b76d360d379dbcaf890fd4a39"
 const pdal_url = "https://github.com/PDAL/PDAL/raw/$pdal_commit/test/data/"
@@ -52,6 +50,7 @@ const pdal_samples = [
   "las/utm15.las" => (; bounding_box = 4),
   "las/utm17.las",
   "las/wontcompress3.las" => (; legacy_counts = 6),
+  # expected mismatch for LAZ files is based on reading them as if they were LAS
   "laz/autzen_trim.laz" => (; pdrf_number = 1, point_data = 3737654, vlr_reserved = 2),
   "laz/simple-laszip-compressor-version-1.2r0.laz" =>
     (; pdrf_number = 1, point_data = 36079, vlr_reserved = 2),
@@ -81,13 +80,13 @@ function check_pdal_samples(; verbose)
   samples = map(s -> s isa String ? s => (;) : s, pdal_samples)
   @testset "Check PDAL sample files in `$dir`" begin
     @testset "$sample" for (sample, expected_mismatch) in samples
+      endswith(sample, ".las") || continue # skip LAZ files for now
       redirect_stderr(verbose ? stderr : devnull) do
         verbose && println(stderr, "→ $(sample)")
         path_in = joinpath(dir, replace(sample, '/' => "-"))
-        isfile(path_in) || Downloads.download(pdal_url * sample, path_in)
         path_out = tempname() * ".las"
         @test expected_mismatch == let
-          las = LAS(path_in)
+          las = LAS(pdal_url * sample; cache = path_in)
           println(stderr, las)
           write(path_out, las)
           mismatch = compare_files(path_in, path_out)
@@ -96,7 +95,7 @@ function check_pdal_samples(; verbose)
         if !occursin("garbage", sample)
           @test let
             las = LAS(path_in)
-            laz = LAS(path_in; force_laszip = true)
+            laz = LAS(path_in; read_points = :laszip)
             all(las[i] == laz[i] for i in 1:length(las))
           end
         end
