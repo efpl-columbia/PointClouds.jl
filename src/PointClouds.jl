@@ -1,6 +1,6 @@
 module PointClouds
 
-export LAS, getcrs, update, update!
+export PointCloud, LAS, getcrs, update, update!, PointRecord, rasterize, neighbors, neighbors!, apply, transform
 
 # accessors for point attributes
 export classification,
@@ -38,6 +38,17 @@ function coordinates end
 include("IO.jl")
 include("DataSources.jl")
 
+using NearestNeighbors: NearestNeighbors
+using Polyester: Polyester
+using DataFrames: DataFrames
+using Proj: Proj
 using .IO, .DataSources
+
+include("basics.jl")
+include("rasterization.jl")
+include("filtering.jl")
+include("attributes.jl")
+
+using .Attributes
 
 end # module PointClouds
