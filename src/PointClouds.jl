@@ -27,13 +27,17 @@ export classification,
   user_data,
   waveform_packet
 
+# functions for accessing data sources
+export gettiles, ScienceBase
+
 # definitions also used in other modules
 abstract type AbstractPointCloud end
 function getcrs end
 function coordinates end
 
 include("IO.jl")
+include("DataSources.jl")
 
-using .IO
+using .IO, .DataSources
 
 end # module PointClouds
