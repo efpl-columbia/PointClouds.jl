@@ -402,7 +402,7 @@ unwrap(io::IOContext) = unwrap(io.io)
 unwrap(io::Base.IO) = io
 
 function LAS(uri::HTTP.URI; cache = true, kws...)
-    isfile(cache) && return LAS(cache)
+    isfile(cache) && return LAS(cache; kws...)
 
     # if points are not required, try to download only the header data
     if get(kws, :read_points, true) == false
@@ -625,8 +625,21 @@ function LAS(io::Base.IO; read_points = :auto, override_crs = nothing)
     r = LASzipReader(filename, pdrf_type, point_count_total)
     read_points == true ? collect(r) : r
   elseif read_points == :auto
+    io = unwrap(io) # remove context
+    # check how many bytes are left for point data
+    pos = position(io)
+    seekend(io)
+    available, rem = divrem(position(io) - pos, pdrf_bytes)
+    seek(io, pos) # reset to start of point data
+    if available < point_count_total
+      n = point_count_total - available
+      point_count_total = available
+      @error "Point data ends prematurely ($n record$('s'^(n>1)) missing"
+    elseif available > point_count_total || !iszero(rem)
+      @error "Input longer than expected"
+    end
     # we cannot mmap as a Vector{pdrf_type} because such a vector can have different byte alignment
-    data = Mmap.mmap(unwrap(io), Vector{UInt8}, pdrf_bytes * point_count_total; grow = false)
+    data = Mmap.mmap(io, Vector{UInt8}, pdrf_bytes * point_count_total; grow = false)
     MappedPoints(pdrf_type, data)
   elseif read_points == true
     points = Vector{pdrf_type}(undef, point_count_total)
