@@ -23,6 +23,35 @@ test *params:
   # try-block used to suppress unnecessary stacktrace in output
   try Pkg.test(test_args = ARGS) catch end
 
+# Run documetation tests
+doctest:
+  #!/usr/bin/env julia
+  import Pkg
+  Pkg.activate(; temp=true)
+  empty!(LOAD_PATH)
+  push!(LOAD_PATH, "@", "@stdlib")
+  Pkg.develop(path = ".")
+  Pkg.add(Pkg.PackageSpec(name="Documenter", version="{{documenter_version}}"); preserve = Pkg.PRESERVE_TIERED_INSTALLED)
+  import Documenter, PointClouds
+  Documenter.doctest(PointClouds)
+
+# Run documetation tests
+getsample:
+  #!/usr/bin/env julia
+  haskey(ENV, "XDG_CACHE_HOME") || error("Set `XDG_CACHE_HOME` to run this recipe")
+  import Pkg
+  Pkg.activate(; temp=true)
+  empty!(LOAD_PATH)
+  push!(LOAD_PATH, "@", "@stdlib")
+  Pkg.add(Pkg.PackageSpec(name="BaseDirs"); preserve = Pkg.PRESERVE_TIERED_INSTALLED)
+  Pkg.add(Pkg.PackageSpec(name="HTTP"); preserve = Pkg.PRESERVE_TIERED_INSTALLED)
+  import BaseDirs, HTTP
+  dir = BaseDirs.User.cache(BaseDirs.Project("PointClouds"), "ScienceBase")
+  mkpath(dir)
+  path = joinpath(dir, "6413c497d34eb496d1ce956e.laz")
+  isfile(path) && exit(0)
+  HTTP.download("https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/LPC/Projects/Sandy_Supplemental_NCR_VA_MD_DC_QL2_LiDAR/MD_VA_Sandy_NCR_2014/LAZ/USGS_LPC_Sandy_Supplemental_NCR_VA_MD_DC_QL2_LiDAR_18SUJ322306.laz", path, ("Range" => "bytes=0-51489",))
+
 # Build documentation to `docs/build` folder
 makedocs:
   #!/usr/bin/env julia
