@@ -1,0 +1,31 @@
+name: CI Testing
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  ci-testing:
+    runs-on: ubuntu-latest
+    name: Run CI Testing
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Just command runner
+        uses: extractions/setup-just@v2
+        with: {just-version: 1.29}
+      - name: Set up Julia
+        uses: julia-actions/setup-julia@v2
+        with: {version: '1.10'}
+      - name: Cache Julia packages
+        uses: julia-actions/cache@v2
+      - name: Check formatting
+        run: just format --check
+      - name: Run unit tests
+        run: just test
+      - name: Fetch truncated sample data
+        run: env XDG_CACHE_HOME=/tmp/jl-cache just getsample
+      - name: Run documentation tests
+        run: env XDG_CACHE_HOME=/tmp/jl-cache just doctest
