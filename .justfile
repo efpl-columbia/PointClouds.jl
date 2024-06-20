@@ -50,10 +50,25 @@ servedocs:
   LiveServer.servedocs(; include_dirs = ["src"])
 
 # Apply formatting rules to code and tests
-format:
+format *params:
   #!/usr/bin/env julia
   import Pkg
   Pkg.activate(; temp=true)
   Pkg.add(Pkg.PackageSpec(name="JuliaFormatter", version="{{formatter_version}}"); preserve = Pkg.PRESERVE_TIERED_INSTALLED)
   import JuliaFormatter
-  JuliaFormatter.format(["src", "test"])
+  check = "-c" in ARGS || "--check" in ARGS # only check, do not apply
+  paths = filter(!startswith('-'), ARGS)
+  isempty(paths) && push!(paths, "src", "test")
+  if !check
+    ps = ['`' * relpath(p) * '/'^isdir(p) * '`' for p in paths]
+    print("Formatting ", if length(ps) < 3
+        join(ps, " and ")
+      else
+        string(join(ps[begin:end-1], ", "), ", and ", ps[end])
+      end, "… ")
+  end
+  if !JuliaFormatter.format(paths; overwrite = !check)
+    check ? exit(1) : println("[Done]")
+  else
+    check || println("[No changes]")
+  end
