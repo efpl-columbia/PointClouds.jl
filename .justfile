@@ -4,7 +4,7 @@ set positional-arguments
 
 documenter_version := "1.4.1"
 liveserver_version := "1.3.1"
-formatter_version := "1.0.45"
+formatter_version := "1.0.56"
 revise_version := "3.5.14"
 
 _default:
@@ -54,6 +54,6 @@ format:
   #!/usr/bin/env julia
   import Pkg
   Pkg.activate(; temp=true)
-  Pkg.add(Pkg.PackageSpec(name="JuliaFormatter", version="{{formatter_version}}"))
+  Pkg.add(Pkg.PackageSpec(name="JuliaFormatter", version="{{formatter_version}}"); preserve = Pkg.PRESERVE_TIERED_INSTALLED)
   import JuliaFormatter
   JuliaFormatter.format(["src", "test"])

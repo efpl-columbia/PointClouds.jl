@@ -12,7 +12,7 @@ columns.
 =#
 struct PointCloud <: AbstractPointCloud
   data::DataFrames.DataFrame
-  crs
+  crs::Any
 end
 
 # accessors (getproperty is overloaded so pts.data does not work)
@@ -24,20 +24,26 @@ getdata(pts::PointCloud) = getfield(pts, :data) # not exported
 getcrs(pts::PointCloud) = getfield(pts, :crs) # exported
 
 # equality testing
-Base.:(==)(pts1::PointCloud, pts2::PointCloud) = getdata(pts1) == getdata(pts2) && getcrs(pts1) == getcrs(pts2)
+function Base.:(==)(pts1::PointCloud, pts2::PointCloud)
+  getdata(pts1) == getdata(pts2) && getcrs(pts1) == getcrs(pts2)
+end
 
 # dictionary-style indexing refer to attributes (“columns”)
-const AttributeName = Union{Symbol, AbstractString}
+const AttributeName = Union{Symbol,AbstractString}
 Base.keys(pts::PointCloud) = Tuple(propertynames(getdata(pts)))
 Base.haskey(pts::PointCloud, key::AttributeName) = hasproperty(getdata(pts), key)
 Base.getindex(pts::PointCloud, key::AttributeName) = getproperty(getdata(pts), key)
-Base.setindex!(pts::PointCloud, val::AbstractVector, key::AttributeName) = setproperty!(getdata(pts), key, val)
+function Base.setindex!(pts::PointCloud, val::AbstractVector, key::AttributeName)
+  setproperty!(getdata(pts), key, val)
+end
 Base.propertynames(pts::PointCloud) = keys(pts)
 Base.hasproperty(pts::PointCloud, key::Symbol) = haskey(pts, key)
 Base.getproperty(pts::PointCloud, key::Symbol) = pts[key]
 Base.setproperty!(pts::PointCloud, key::Symbol, val::AbstractVector) = pts[key] = val
 Base.names(pts::PointCloud) = String.(keys(pts))
-Base.delete!(pts::PointCloud, key::Symbol) = (DataFrames.select!(getdata(pts), DataFrames.Not(key)); pts)
+function Base.delete!(pts::PointCloud, key::Symbol)
+  (DataFrames.select!(getdata(pts), DataFrames.Not(key)); pts)
+end
 
 # vector-style indices refer to points (“rows”)
 Base.length(pts::PointCloud) = size(getdata(pts), 1)
@@ -46,23 +52,21 @@ Base.lastindex(pts::PointCloud) = lastindex(getdata(pts), 1)
 Base.eachindex(pts::PointCloud) = firstindex(pts):lastindex(pts)
 
 # indexing by a single number returns a named tuple (TODO: reconsider)
-function Base.getindex(pts::PointCloud, ind::Number)
-  NamedTuple(getdata(pts)[ind, :])
-end
+Base.getindex(pts::PointCloud, ind::Number) = NamedTuple(getdata(pts)[ind, :])
 
 # indexing by range etc. returns a new point cloud
-function Base.getindex(pts::PointCloud, inds)
-  PointCloud(getdata(pts)[inds, :], getcrs(pts))
-end
+Base.getindex(pts::PointCloud, inds) = PointCloud(getdata(pts)[inds, :], getcrs(pts))
 
 function PointCloud(
-    input::NamedTuple;
-    crs = nothing,
-    #extent = nothing, # TODO: support bounding box
-    #filter = nothing, # TODO: support filter
-    #tol = 1e-6,
-  )
-  normalize(k, v) = k => (k in (:x, :y, :z) ? collect(Float64, v) : v isa Tuple ? collect(v) : v)
+  input::NamedTuple;
+  crs = nothing,
+  #extent = nothing, # TODO: support bounding box
+  #filter = nothing, # TODO: support filter
+  #tol = 1e-6,
+)
+  function normalize(k, v)
+    k => (k in (:x, :y, :z) ? collect(Float64, v) : v isa Tuple ? collect(v) : v)
+  end
   data = [normalize(k, v) for (k, v) in pairs(input)]
   PointCloud(DataFrames.DataFrame(data), crs)
 end
@@ -100,30 +104,29 @@ Base.read(::IO, ::LAS)) such as the path to a LAS/LAZ file. Alternatively, a
 `NamedTuple` of `Vector`s can be passed, where the `x`, `y`, and `z`-names are
 interpreted as coordinates and all the other names as additional attributes.
 
-
 # Keywords
 
-- `attributes`: Additional attributes that are included for each point.
-  Attributes are specified as a tuple/array of functions that are applied to
-  each point to compute the attribute. By default, the name of the function is
-  used as attribute name, but a manual name can be specified by passing a
-  `Pair{Symbol,Function}` instead. The attributes can also be defined with a
-  `NamedTuple`, where the keys are the attribute names and the values are the
-  functions. Default: `()`.
-- `coordinates`: Subset of coordinates to load, e.g. `(:x, :y)` if the vertical
-  coordinates are not required. Default: `(:x, :y, :z)`.
-- `crs`: Coordinate reference system (CRS) that the x/y/z-coordinates should be
-  transformed to, specified as any string understood by the [PROJ
-  library](https://proj.org/en/9.4/usage/quickstart.html). Default: CRS of the
-  first input.
-- `x` or `lon`: A tuple `(xmin, xmax)` with the minimum and maximum value of
-  the x-coordinate range that should be retained, in the CRS of the output.
-- `y` or `lat`: A tuple `(ymin, ymax)` with the minimum and maximum value of
-  the y-coordinate range that should be retained, in the CRS of the output.
-- `z`: A tuple `(zmin, zmax)` with the minimum and maximum value of the
-  z-coordinate range that should be retained, in the CRS of the output.
-- `filter`: Predicate function that is called on each point to exclude points
-  for which the `filter` function returns `false`.
+  - `attributes`: Additional attributes that are included for each point.
+    Attributes are specified as a tuple/array of functions that are applied to
+    each point to compute the attribute. By default, the name of the function is
+    used as attribute name, but a manual name can be specified by passing a
+    `Pair{Symbol,Function}` instead. The attributes can also be defined with a
+    `NamedTuple`, where the keys are the attribute names and the values are the
+    functions. Default: `()`.
+  - `coordinates`: Subset of coordinates to load, e.g. `(:x, :y)` if the vertical
+    coordinates are not required. Default: `(:x, :y, :z)`.
+  - `crs`: Coordinate reference system (CRS) that the x/y/z-coordinates should be
+    transformed to, specified as any string understood by the [PROJ
+    library](https://proj.org/en/9.4/usage/quickstart.html). Default: CRS of the
+    first input.
+  - `x` or `lon`: A tuple `(xmin, xmax)` with the minimum and maximum value of
+    the x-coordinate range that should be retained, in the CRS of the output.
+  - `y` or `lat`: A tuple `(ymin, ymax)` with the minimum and maximum value of
+    the y-coordinate range that should be retained, in the CRS of the output.
+  - `z`: A tuple `(zmin, zmax)` with the minimum and maximum value of the
+    z-coordinate range that should be retained, in the CRS of the output.
+  - `filter`: Predicate function that is called on each point to exclude points
+    for which the `filter` function returns `false`.
 
 # Examples
 
@@ -132,14 +135,14 @@ interpreted as coordinates and all the other names as additional attributes.
     PointCloud(las; crs = "EPSG:4326", extent = ((-73.97, 40.80), (-73.95, 40.82)))
 """
 function PointCloud(
-    input;
-    coordinates = (:x, :y, :z),
-    attributes = (),
-    extent = nothing,
-    filter = nothing,
-    crs = nothing,
-    tol = 1e-6,
-  )
+  input;
+  coordinates = (:x, :y, :z),
+  attributes = (),
+  extent = nothing,
+  filter = nothing,
+  crs = nothing,
+  tol = 1e-6,
+)
 
   # normalize input data
   inputs = normalize_input(input)
@@ -196,9 +199,7 @@ pass a range of indices or `:` as the `index` argument.
 Provide the `crs` keyword argument to transform the coordinates to a new CRS
 instead of the current CRS of the `PointCloud`.
 """
-function coordinates(pts::PointCloud, inds; crs = nothing)
-  error("Not yet implemented")
-end
+coordinates(pts::PointCloud, inds; crs = nothing) = error("Not yet implemented")
 
 """
     transform(p::PointCloud; crs)
@@ -211,6 +212,4 @@ The required keyword argument `crs` can be any string understood by the [PROJ
 library](https://proj.org/en/9.4/usage/quickstart.html). If set to `nothing`,
 the CRS is removed.
 """
-function transform(pts::PointCloud; kws...)
-  error("Not yet implemented")
-end
+transform(pts::PointCloud; kws...) = error("Not yet implemented")

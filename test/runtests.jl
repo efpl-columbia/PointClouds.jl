@@ -1,11 +1,12 @@
 using Test, PointClouds
-import Dates
+using Dates: Dates
 
 const VERBOSE = "-v" in ARGS || "--verbose" in ARGS
 const SUFFIX = "_test.jl"
 
 @testset "PointClouds.jl" begin
-  tests = sort(map(x -> x[1:end-length(SUFFIX)], filter(endswith(SUFFIX), readdir(@__DIR__))))
+  files = filter(endswith(SUFFIX), readdir(@__DIR__; sort = true))
+  tests = map(x -> x[1:end-length(SUFFIX)], files)
   selection = filter(!startswith('-'), ARGS)
   for test in selection
     test in tests || error("Unknown test category: $test")

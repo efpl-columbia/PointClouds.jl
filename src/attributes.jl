@@ -2,8 +2,9 @@ module Attributes
 
 export apply, neighbors, neighbors!
 
+using NearestNeighbors: NearestNeighbors
 using Polyester: Polyester
-import ..PointCloud, ..NearestNeighbors
+import ..PointCloud
 
 """
     apply(f::Function, [T], p::PointCloud, attrs...; kws...)
@@ -18,13 +19,13 @@ automatically determined type is too narrow or too wide.
 
 # Keywords
 
-- `neighbors`: Apply function to the attribute of a point’s neighbors rather
-  than its own, if set to `true` or to an integer `k`. The function `f`
-  receives `AbstractVector`s with the attribute values of the neighbors in that
-  case. The indices of the `k` nearest neighbors are read from `p.neighbors` if
-  available (see [`neighbors`](@ref)/[`neighbors!`](@ref)). If `p.neighbors` is
-  unavailable or contains fewer than `k` indices, the neighbor search is
-  (re)run (without updating `p.neighbors`). Default: `false`
+  - `neighbors`: Apply function to the attribute of a point’s neighbors rather
+    than its own, if set to `true` or to an integer `k`. The function `f`
+    receives `AbstractVector`s with the attribute values of the neighbors in that
+    case. The indices of the `k` nearest neighbors are read from `p.neighbors` if
+    available (see [`neighbors`](@ref)/[`neighbors!`](@ref)). If `p.neighbors` is
+    unavailable or contains fewer than `k` indices, the neighbor search is
+    (re)run (without updating `p.neighbors`). Default: `false`
 """
 function apply(fn::Function, pts::PointCloud, attrs...; neighbors = false)
   cols = getproperty.((pts,), attrs)

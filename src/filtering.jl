@@ -10,14 +10,14 @@ combination with logical indexing.
 
 # Keywords
 
-- `x` or `lon`: A tuple `(xmin, xmax)` with the minimum and maximum value of
-  the x-coordinate range that should be retained.
-- `y` or `lat`: A tuple `(ymin, ymax)` with the minimum and maximum value of
-  the y-coordinate range that should be retained.
-- `z`: A tuple `(zmin, zmax)` with the minimum and maximum value of the
-  z-coordinate range that should be retained.
-- `crs`: The coordinate reference system in which the extent should be applied.
-  Set to the CRS of the `LAS` by default.
+  - `x` or `lon`: A tuple `(xmin, xmax)` with the minimum and maximum value of
+    the x-coordinate range that should be retained.
+  - `y` or `lat`: A tuple `(ymin, ymax)` with the minimum and maximum value of
+    the y-coordinate range that should be retained.
+  - `z`: A tuple `(zmin, zmax)` with the minimum and maximum value of the
+    z-coordinate range that should be retained.
+  - `crs`: The coordinate reference system in which the extent should be applied.
+    Set to the CRS of the `LAS` by default.
 
 See also: [`filter!`](@ref Base.filter!(::Function, ::LAS, ::Any))
 """
@@ -47,11 +47,18 @@ function gen_check_extent(las; crs = nothing, tol = nothing, kws...)
   end
 end
 
-function normalize_extent_kws(; lat = nothing, lon = nothing, x = nothing, y =
-                          nothing, z = nothing)
-  isnothing(x) || isnothing(lon) ||
+function normalize_extent_kws(;
+  lat = nothing,
+  lon = nothing,
+  x = nothing,
+  y = nothing,
+  z = nothing,
+)
+  isnothing(x) ||
+    isnothing(lon) ||
     throw(ArgumentError("`x` and `lon` are equivalent, only provide one of them"))
-  isnothing(y) || isnothing(lat) ||
+  isnothing(y) ||
+    isnothing(lat) ||
     throw(ArgumentError("`y` and `lat` are equivalent, only provide one of them"))
   isnothing(x) ? lon : x, isnothing(y) ? lat : y, z
 end
@@ -70,14 +77,14 @@ filter a point-cloud, especially in combination with logical indexing.
 
 # Keywords
 
-- `x` or `lon`: A tuple `(xmin, xmax)` with the minimum and maximum value of
-  the x-coordinate range that should be retained.
-- `y` or `lat`: A tuple `(ymin, ymax)` with the minimum and maximum value of
-  the y-coordinate range that should be retained.
-- `z`: A tuple `(zmin, zmax)` with the minimum and maximum value of the
-  z-coordinate range that should be retained.
-- `crs`: The coordinate reference system in which the extent should be applied.
-  Set to the CRS of the `PointCloud` by default.
+  - `x` or `lon`: A tuple `(xmin, xmax)` with the minimum and maximum value of
+    the x-coordinate range that should be retained.
+  - `y` or `lat`: A tuple `(ymin, ymax)` with the minimum and maximum value of
+    the y-coordinate range that should be retained.
+  - `z`: A tuple `(zmin, zmax)` with the minimum and maximum value of the
+    z-coordinate range that should be retained.
+  - `crs`: The coordinate reference system in which the extent should be applied.
+    Set to the CRS of the `PointCloud` by default.
 
 See also: [`filter!`](@ref Base.filter!(::Function, ::PointCloud, ::Vararg))
 """
@@ -94,37 +101,43 @@ Remove points that do not meet the specified filter criteria from a
 Base.filter!(fn::Function, pts::PointCloud, cols...; kws...) =
   Base.filter!(pts; predicate = cols => fn, kws...)
 
-Base.filter(pts::PointCloud, sel::BitVector = trues(length(pts)); kws...) =
+function Base.filter(pts::PointCloud, sel::BitVector = trues(length(pts)); kws...)
   getindex(pts, apply_filters!(sel, pts; kws...))
+end
 
-Base.filter!(pts::PointCloud, sel::BitVector = trues(length(pts)); kws...) =
+function Base.filter!(pts::PointCloud, sel::BitVector = trues(length(pts)); kws...)
   keepat!(pts, apply_filters!(sel, pts; kws...))
+end
 
-function apply_filters!(sel::BitVector, pts::PointCloud;
-                        # filter by extent
-                        lat = nothing,
-                        lon = nothing,
-                        x = nothing,
-                        y = nothing,
-                        z = nothing,
+function apply_filters!(
+  sel::BitVector,
+  pts::PointCloud;
+  # filter by extent
+  lat = nothing,
+  lon = nothing,
+  x = nothing,
+  y = nothing,
+  z = nothing,
 
-                        # filter by predicate
-                        predicate = nothing,
+  # filter by predicate
+  predicate = nothing,
 
-                        # filter by index
-                        length = nothing,
-                        start = nothing,
-                        step = nothing,
-                        stop = nothing,
+  # filter by index
+  length = nothing,
+  start = nothing,
+  step = nothing,
+  stop = nothing,
 
-                        # different CRS for extent/predicate filtering
-                        crs = nothing,
-                        )
+  # different CRS for extent/predicate filtering
+  crs = nothing,
+)
 
   # verify that there are no duplicate arguments
-  isnothing(x) || isnothing(lon) ||
+  isnothing(x) ||
+    isnothing(lon) ||
     throw(ArgumentError("`x` and `lon` are equivalent, only provide one of them"))
-  isnothing(y) || isnothing(lat) ||
+  isnothing(y) ||
+    isnothing(lat) ||
     throw(ArgumentError("`y` and `lat` are equivalent, only provide one of them"))
 
   # filter first by extent, then by predicate function, then by indexing
@@ -188,8 +201,9 @@ function apply_predicate_parallel!(fn::F, sel::BitVector, cols) where {F<:Functi
   sel
 end
 
-apply_extents!(sel::BitVector, pts, x, y, z, crs) =
+function apply_extents!(sel::BitVector, pts, x, y, z, crs)
   apply_predicate!(sel, pts, (:x, :y, :z) => within_extents(x, y, z), crs)
+end
 
 function within_extents(xext, yext, zext)
   xtol, ytol, ztol = extent_tolerance.((xext, yext, zext))
@@ -214,7 +228,8 @@ function apply_subrange!(sel, length, start, step, stop)
   isnothing(length) || @assert length >= 0
   n = sum(sel)
   r = subrange(1:n, length, start, step, stop)
-  Base.step(r) >= 0 || throw(ArgumentError("`step` cannot be negative (use `reverse!` instead)"))
+  Base.step(r) >= 0 ||
+    throw(ArgumentError("`step` cannot be negative (use `reverse!` instead)"))
   r == 1:n || apply_subrange!(sel, sort(r))
   sel
 end
@@ -231,12 +246,16 @@ function apply_subrange!(sel::BitVector, r)
 end
 
 # allow overriding
-subrange(inds, length, start, step, stop) = inds[range(; length = length, start = start, step = step, stop = stop)]
+function subrange(inds, length, start, step, stop)
+  inds[range(; length = length, start = start, step = step, stop = stop)]
+end
 subrange(inds, ::Nothing, start::Integer, ::Nothing, ::Nothing) = inds[start:end]
 subrange(inds, ::Nothing, ::Nothing, step::Integer, ::Nothing) = inds[begin:step:end]
 subrange(inds, ::Nothing, start::Integer, step::Integer, ::Nothing) = inds[start:step:end]
 subrange(inds, ::Nothing, ::Nothing, ::Nothing, ::Nothing) = inds
-subrange(inds, length::Integer, ::Nothing, step::Integer, ::Nothing) = inds[begin:step:(begin+step*(length - 1))]
+function subrange(inds, length::Integer, ::Nothing, step::Integer, ::Nothing)
+  inds[begin:step:(begin+step*(length-1))]
+end
 subrange(inds, ::Nothing, ::Nothing, step::Integer, stop::Integer) = inds[begin:step:stop]
 function subrange(inds, length::Integer, start::Integer, ::Nothing, stop::Integer)
   step = div(stop - start, length - 1)

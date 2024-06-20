@@ -7,8 +7,8 @@ function run_filter_tests(; verbose)
   @test pts[1:10].y == 41:50
   @test pts[end:-1:begin].y == 60:-1:41
   @test pts[2:19] == pts[begin+1:end-1]
-  @test pts[1:2:10] == pts[[1,3,5,7,9]]
-  @test pts[10:2:end] == pts[pts.x .>= 10 .&& iseven.(pts.y)]
+  @test pts[1:2:10] == pts[[1, 3, 5, 7, 9]]
+  @test pts[10:2:end] == pts[(pts.x.>=10).&&iseven.(pts.y)]
 
   # filter function for index-based filtering
   @test filter(pts; start = 2, step = 3) == pts[2:3:end]
@@ -41,4 +41,4 @@ function run_filter_tests(; verbose)
   @test filter(pts; y = (1_000_000, 1_300_000), crs = "EPSG:2056").y == 46:47
 end
 
-@testset "Filtering" run_filter_tests(verbose = VERBOSE)
+@testset "Filtering" run_filter_tests(; verbose = VERBOSE)

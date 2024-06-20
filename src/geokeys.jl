@@ -196,7 +196,9 @@ function wkt_projected_cs(gk)
   k = gk.ProjectedCRS
   k isa EPSG && return epsgio(k)
 
-  wkt_tag("PROJCS", get(gk, :ProjectedCitation, ""),
+  wkt_tag(
+    "PROJCS",
+    get(gk, :ProjectedCitation, ""),
     wkt_geographic_cs(gk),
     wkt_projection(gk),
     wkt_parameters(gk), # {<parameter>,}*
@@ -211,33 +213,33 @@ function wkt_projection(gk)
 
   # also see https://gdal.org/proj_list/
   methods = (
-  ("Transverse_Mercator", 9807), # in WKT spec
-  (:TransvMercator_Modified_Alaska__AlaskaConformal, nothing),
-  (:ObliqueMercator__ObliqueMercator_Hotine, nothing),
-  ("Laborde_Oblique_Mercator", 9813), # in WKT spec
-  ("Swiss_Oblique_Cylindrical", 9814), # in WKT spec
-  (:ObliqueMercator_Spherical, nothing),
-  (:Mercator, nothing),
-  ("Lambert_Conformal_Conic_2SP", 9802), # in WKT spec
-  (:LambertConfConic_Helmert, nothing),
-  ("Lambert_Azimuthal_Equal_Area", 9820),
-  ("Albers_Conic_Equal_Area", 9822),
-  ("Azimuthal_Equidistant", nothing),
-  ("Equidistant_Conic", nothing),
-  ("Stereographic", nothing),
-  ("Polar_Stereographic", 9810), # in WKT spec, but could be 9829/9830 as well
-  ("Oblique_Stereographic", 9809), # in WKT spec
-  (:Equirectangular, nothing),
-  ("Cassini_Soldner", 9806), # in WKT spec
-  ("Gnomonic", nothing),
-  ("Miller_Cylindrical", nothing),
-  ("Orthographic", nothing),
-  ("Polyconic", nothing),
-  ("Robinson", nothing),
-  ("Sinusoidal", nothing),
-  ("VanDerGrinten", nothing),
-  ("New_Zealand_Map_Grid", 9811), # in WKT spec
-  ("Transverse_Mercator_South_Orientated", 9808), # in WKT spec
+    ("Transverse_Mercator", 9807), # in WKT spec
+    (:TransvMercator_Modified_Alaska__AlaskaConformal, nothing),
+    (:ObliqueMercator__ObliqueMercator_Hotine, nothing),
+    ("Laborde_Oblique_Mercator", 9813), # in WKT spec
+    ("Swiss_Oblique_Cylindrical", 9814), # in WKT spec
+    (:ObliqueMercator_Spherical, nothing),
+    (:Mercator, nothing),
+    ("Lambert_Conformal_Conic_2SP", 9802), # in WKT spec
+    (:LambertConfConic_Helmert, nothing),
+    ("Lambert_Azimuthal_Equal_Area", 9820),
+    ("Albers_Conic_Equal_Area", 9822),
+    ("Azimuthal_Equidistant", nothing),
+    ("Equidistant_Conic", nothing),
+    ("Stereographic", nothing),
+    ("Polar_Stereographic", 9810), # in WKT spec, but could be 9829/9830 as well
+    ("Oblique_Stereographic", 9809), # in WKT spec
+    (:Equirectangular, nothing),
+    ("Cassini_Soldner", 9806), # in WKT spec
+    ("Gnomonic", nothing),
+    ("Miller_Cylindrical", nothing),
+    ("Orthographic", nothing),
+    ("Polyconic", nothing),
+    ("Robinson", nothing),
+    ("Sinusoidal", nothing),
+    ("VanDerGrinten", nothing),
+    ("New_Zealand_Map_Grid", 9811), # in WKT spec
+    ("Transverse_Mercator_South_Orientated", 9808), # in WKT spec
   )
   @assert length(methods) == 27
 
@@ -254,8 +256,7 @@ end
 function wkt_parameters(gk)
   params = []
   add!(key) = haskey(gk, key) && error("Parameter not yet implemented: $key")
-  add!(key, name) =
-  haskey(gk, key) && push!(params, wkt_tag("PARAMETER", name, gk[key]))
+  add!(key, name) = haskey(gk, key) && push!(params, wkt_tag("PARAMETER", name, gk[key]))
 
   # add parameters with corresponding WKT name
   add!(:ProjStdParallel1, "standard_parallel_1") # WKT spec says standard_parallel1
@@ -284,7 +285,9 @@ function wkt_geographic_cs(gk)
   k = gk.GeodeticCRS
   k isa EPSG && return epsgio(k)
 
-  wkt_tag("GEOGCS", get(gk, :GeodeticCitation, ""),
+  wkt_tag(
+    "GEOGCS",
+    get(gk, :GeodeticCitation, ""),
     wkt_datum(gk),
     wkt_prime_meridian(gk),
     wkt_unit(gk, :GeogAngularUnits),
@@ -296,7 +299,9 @@ function wkt_datum(gk)
   k = gk.GeodeticDatum
   k isa EPSG && return epsgio(k, "datum")
 
-  wkt_tag("DATUM", "(User-Defined)",
+  wkt_tag(
+    "DATUM",
+    "(User-Defined)",
     wkt_spheroid(gk),
     # {,<to wgs84>} {,<authority>}
   )
@@ -321,7 +326,7 @@ function wkt_unit(gk, kind)
   if k == EPSG(9001)
     wkt_tag("UNIT", "metre", "1", wkt_epsg(k))
   elseif k == EPSG(9102)
-    wkt_tag("UNIT", "degree", "0.0174532925199433",	wkt_epsg(k))
+    wkt_tag("UNIT", "degree", "0.0174532925199433", wkt_epsg(k))
   else
     error("Unit not implemented: $k ($kind)")
   end
@@ -336,6 +341,4 @@ wkt_quote(s) = '"' in s ? error("quote in wkt string") : string('"', s, '"')
 
 wkt_epsg(e) = """AUTHORITY["EPSG","$(e.id)"]"""
 
-function wkt_tag(tag, name, args...)
-  """$tag["$name",$(join(args, ','))]"""
-end
+wkt_tag(tag, name, args...) = """$tag["$name",$(join(args, ','))]"""

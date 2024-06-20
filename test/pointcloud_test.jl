@@ -1,6 +1,11 @@
 function run_pointcloud_tests(; verbose)
   # setting up a basic point cloud from manually specified input data
-  data = (x = (1, 2, 3, 4, 5), y = (1, 2, 3, 4, 5), z = (1, 2, 3, 4, 5).^2, intensity = (1, 2, 3, 4, 5))
+  data = (
+    x = (1, 2, 3, 4, 5),
+    y = (1, 2, 3, 4, 5),
+    z = (1, 2, 3, 4, 5) .^ 2,
+    intensity = (1, 2, 3, 4, 5),
+  )
   pts = PointCloud(data)
 
   # array-style access of individual points
@@ -62,13 +67,14 @@ function run_pointcloud_tests(; verbose)
   @test map(length, rf.z) == ones(3, 3) * 5
   rf = rasterize(pts, (3, 3); extent = ((0, 0), (7, 7)), radius = 3)
   @test map(length, rf.x) == [3 4 0; 4 4 3; 0 3 2]
-  @test map(xs -> maximum(xs, init = 0), rf.x) == [3 4 0; 4 5 5; 0 5 5]
+  @test map(xs -> maximum(xs; init = 0), rf.x) == [3 4 0; 4 5 5; 0 5 5]
   rf = rasterize(pts, (3, 3); extent = ((2, 0), (4, 18)), radius = 4)
   @test map(length, rf.x) == [j == 1 ? 5 : 0 for i in 1:3, j in 1:3]
 
   # rasterize by neighbors (need to break symmetry in tests)
   rf = rasterize(pts, (3, 3); extent = ((0, 0), (8, 7)), neighbors = 2)
-  @test map(collect, rf.x)[:] == [[1,2],[3,2],[4,3],[2,3],[4,3],[5,4],[4,3],[5,4],[5,4]]
+  @test map(collect, rf.x)[:] ==
+        [[1, 2], [3, 2], [4, 3], [2, 3], [4, 3], [5, 4], [4, 3], [5, 4], [5, 4]]
 end
 
 @testset "PointCloud Type" run_pointcloud_tests(verbose = VERBOSE)

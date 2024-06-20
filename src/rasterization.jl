@@ -4,7 +4,7 @@ struct RasterizedPointCloud{N}
   offsets::Vector{Int}
   dims::NTuple{N,Int}
   extent::NTuple{2,NTuple{N,Float64}}
-  crs
+  crs::Any
 end
 
 struct PointCloudField{N,V}
@@ -31,7 +31,7 @@ Base.size(c::PointCloudField) = c.dims
 Base.eltype(c::PointCloudField) = typeof(c[1])
 
 function Base.getindex(c::PointCloudField, ind::Integer)
-  indmin = ind == 1 ? 1 : c.offsets[ind - 1] + 1
+  indmin = ind == 1 ? 1 : c.offsets[ind-1] + 1
   indmax = c.offsets[ind]
   view(c.data, view(c.point_indices, indmin:indmax))
 end
@@ -63,19 +63,24 @@ empty pixels.
 
 # Keywords
 
-- `x` or `lon`: A tuple `(xmin, xmax)` with the minimum and maximum value of
-  the x-coordinate range that should be divided into `dims[1]` intervals.
-- `y` or `lat`: A tuple `(ymin, ymax)` with the minimum and maximum value of
-  the y-coordinate range that should be divided into `dims[2]` intervals.
-- `radius`: Assign all points within a distance of `radius` from the pixel
-  center to that raster location. The unit of `radius` is the same as the
-  x-/y-coordinates. Note that points may get assigned to multiple or zero
-  raster locations.
-- `neighbors`: Assign a specific number `neighbors` of points to each raster
-  location based on which ones are closest to the pixel center.
+  - `x` or `lon`: A tuple `(xmin, xmax)` with the minimum and maximum value of
+    the x-coordinate range that should be divided into `dims[1]` intervals.
+  - `y` or `lat`: A tuple `(ymin, ymax)` with the minimum and maximum value of
+    the y-coordinate range that should be divided into `dims[2]` intervals.
+  - `radius`: Assign all points within a distance of `radius` from the pixel
+    center to that raster location. The unit of `radius` is the same as the
+    x-/y-coordinates. Note that points may get assigned to multiple or zero
+    raster locations.
+  - `neighbors`: Assign a specific number `neighbors` of points to each raster
+    location based on which ones are closest to the pixel center.
 """
-function rasterize(pts::PointCloud, dims; extent = boundingbox(pts), radius = nothing, neighbors = nothing)
-
+function rasterize(
+  pts::PointCloud,
+  dims;
+  extent = boundingbox(pts),
+  radius = nothing,
+  neighbors = nothing,
+)
   isnothing(radius) || return rasterize_radius(pts, dims, extent, radius)
   isnothing(neighbors) || return rasterize_neighbors(pts, dims, extent, neighbors)
 
@@ -93,7 +98,7 @@ function rasterize(pts::PointCloud, dims; extent = boundingbox(pts), radius = no
   pixel_indices = map(zip(pts.x, pts.y)) do coord
     i, j = div.(coord .- origin, spacing)
     if 1 <= i <= dims[1] && 1 <= j <= dims[2]
-      Int(i + (j-1) * dims[1])
+      Int(i + (j - 1) * dims[1])
     else
       zero(Int) # points will be skipped
     end
@@ -120,7 +125,14 @@ function rasterize(pts::PointCloud, dims; extent = boundingbox(pts), radius = no
   @assert offsets[end] == npt
   @assert !any(iszero, point_indices)
 
-  RasterizedPointCloud{2}(getfield(pts, :data), point_indices, offsets, dims, extent, getfield(pts, :crs))
+  RasterizedPointCloud{2}(
+    getfield(pts, :data),
+    point_indices,
+    offsets,
+    dims,
+    extent,
+    getfield(pts, :crs),
+  )
 end
 
 function rasterize_radius(pts::PointCloud, dims, extent, radius; tol = 1e-9 * radius)
@@ -147,7 +159,7 @@ function rasterize_radius(pts::PointCloud, dims, extent, radius; tol = 1e-9 * ra
       for i in ceil(Int, ipt - nx):floor(Int, ipt + nx)
         1 <= i <= dims[1] || continue
         if ((ipt - i) * spacing[1])^2 + ((j - jpt) * spacing[2])^2 <= radius^2
-          push!(inds, i + (j-1) * dims[1])
+          push!(inds, i + (j - 1) * dims[1])
         end
       end
     end
@@ -177,7 +189,14 @@ function rasterize_radius(pts::PointCloud, dims, extent, radius; tol = 1e-9 * ra
   @assert offsets[end] == npt
   @assert !any(iszero, point_indices)
 
-  RasterizedPointCloud{2}(getfield(pts, :data), point_indices, offsets, dims, extent, getfield(pts, :crs))
+  RasterizedPointCloud{2}(
+    getfield(pts, :data),
+    point_indices,
+    offsets,
+    dims,
+    extent,
+    getfield(pts, :crs),
+  )
 end
 
 function rasterize_neighbors(pts::PointCloud, dims, extent, neighbors; sort = true)
@@ -207,7 +226,14 @@ function rasterize_neighbors(pts::PointCloud, dims, extent, neighbors; sort = tr
   @assert !any(iszero, point_indices)
 
   # TODO: store offsets as range instead of vector
-  RasterizedPointCloud{2}(getfield(pts, :data), point_indices, collect(offsets), dims, extent, getfield(pts, :crs))
+  RasterizedPointCloud{2}(
+    getfield(pts, :data),
+    point_indices,
+    collect(offsets),
+    dims,
+    extent,
+    getfield(pts, :crs),
+  )
 end
 
 function exclusive_prefix_sum!(arr)

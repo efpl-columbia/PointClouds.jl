@@ -42,9 +42,7 @@ cannot be exceeded (1000 for ScienceBase). Beyond those paging is required
 (i.e. requesting more results with an offset), which is not currently supported
 by `gettiles`.
 """
-function gettiles(src; kws...)
-  error("No search function found for `$src`")
-end
+gettiles(src; kws...) = error("No search function found for `$src`")
 
 # function should be extended for individual data sources
 gettiles(src, loc::Tuple{Real,Real}) = gettiles(src; lat = loc[1], lon = loc[2])
@@ -58,7 +56,7 @@ end
 function gettiles(path::AbstractString)
   isdir(path) || error("`$path` is not a directory")
   map(readdir(path)) do file
-    PointCloudTile(LocalPath, (path = joinpath(path, file), ))
+    PointCloudTile(LocalPath, (path = joinpath(path, file),))
   end
 end
 
@@ -70,8 +68,12 @@ function tiledir(src::Type{<:DataSource})
   BaseDirs.User.cache(proj, "tiles", string(src))
 end
 
-uri(t::PointCloudTile{S}) where {S} = error("Tile `$(id(t))` from `$S` does not specify URI for download")
-filename(::PointCloudTile{S}) where {S} = error("Tile source `$S` does not specify file name")
+function uri(t::PointCloudTile{S}) where {S}
+  error("Tile `$(id(t))` from `$S` does not specify URI for download")
+end
+function filename(::PointCloudTile{S}) where {S}
+  error("Tile source `$S` does not specify file name")
+end
 tiledir(::PointCloudTile{S}) where {S} = tiledir(S)
 
 """

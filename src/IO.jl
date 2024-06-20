@@ -30,7 +30,9 @@ using Dates: Dates
 using Mmap: Mmap
 using HTTP: HTTP
 using Proj: Proj
-import ..AbstractPointCloud, ..getcrs, ..coordinates
+import ..AbstractPointCloud
+import ..getcrs
+import ..coordinates
 
 include("laszip.jl")
 include("geokeys.jl")

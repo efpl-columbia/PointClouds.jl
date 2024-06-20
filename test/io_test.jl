@@ -44,15 +44,17 @@ function test_las_create()
   @test_throws ArgumentError LAS(PointRecord{22})
   # las version
   @test LAS().version == (1, 4)
-  @test LAS(version = v"1.3").version == (1, 3)
-  @test allequal(LAS(version = v).version for v in (1.3, "1.3", v"1.3"))
+  @test LAS(; version = v"1.3").version == (1, 3)
+  @test allequal(LAS(; version = v).version for v in (1.3, "1.3", v"1.3"))
   @test_throws ArgumentError LAS(version = 1.5)
   # software id
   @test LAS().software_id == "PointClouds.jl"
-  @test LAS(software_id = "something").software_id == "something"
-  @test_throws ArgumentError LAS(software_id = "something longer than the maximum length of 32 characters")
+  @test LAS(; software_id = "something").software_id == "something"
+  @test_throws ArgumentError LAS(
+    software_id = "something longer than the maximum length of 32 characters",
+  )
   # creation date
-  @test LAS(creation_date = Dates.Date("2020-03-01")).creation_date == (31+29+1, 2020)
+  @test LAS(; creation_date = Dates.Date("2020-03-01")).creation_date == (31 + 29 + 1, 2020)
 
   # create from julia data
   data = (x = 1:5, y = 101:105, z = 100:100:500)
@@ -74,14 +76,14 @@ function test_las_create()
   @test coordinates(LAS(tmp), 1) == (data.x[1], data.y[1], data.z[1])
 
   # create & write subset of points
-  @test las[1:3] == las[1:5 .<= 3]
+  @test las[1:3] == las[(1:5).<=3]
   @test extrema(las[2:4]) == ((2.0, 102.0, 200.0), (4.0, 104.0, 400.0))
   @test coordinates(las[2:2:end], 1) == (2.0, 102.0, 200.0)
   @test coordinates(las[2:2:end], 2) == (4.0, 104.0, 400.0)
   @test las[2:2:end][end] == las[4] == las[iseven.(1:5)][end] == las[4:5][1]
   write(tmp, las[1:3])
   @test length(LAS(tmp)) == 3
-  @test LAS(tmp)[2:3] == LAS(tmp)[1:3 .> 1] == las[2:3]
+  @test LAS(tmp)[2:3] == LAS(tmp)[(1:3).>1] == las[2:3]
 
   # filtering of LAS points
   coords = coordinates(las)
@@ -98,8 +100,14 @@ function test_las_create()
 end
 
 function test_las_update()
-  data = (x = 1:5, y = 101:105, z = 100:100:500, scan_angle = 15_000 .* (-2:2),
-    return_number = [1, 2, 3, 1, 2], return_count = [3, 3, 3, 2, 2])
+  data = (
+    x = 1:5,
+    y = 101:105,
+    z = 100:100:500,
+    scan_angle = 15_000 .* (-2:2),
+    return_number = [1, 2, 3, 1, 2],
+    return_count = [3, 3, 3, 2, 2],
+  )
   las = LAS(data)
   @test scan_angle.(las) == [-180, -90, 0, 90, 180]
   @test return_number.(las) == data.return_number

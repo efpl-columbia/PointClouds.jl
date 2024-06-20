@@ -25,7 +25,8 @@ end
 
 function validate_las_string(str; length = Inf)
   isascii(str) || throw(ArgumentError("String \"$str\" contains non-ASCII characters"))
-  Base.length(str) <= length || throw(ArgumentError("String \"$str\" exceeds maximum length of $length"))
+  Base.length(str) <= length ||
+    throw(ArgumentError("String \"$str\" exceeds maximum length of $length"))
   str
 end
 
@@ -36,12 +37,19 @@ Helper function that translates various version expressions to a pair of
 `UInt8`s, producing an error for invalid LAS versions.
 """
 function las_version(v::VersionNumber)
-  minor = v == v"1.0" ? 0x0 :
-    v == v"1.1" ? 0x1 :
-    v == v"1.2" ? 0x2 :
-    v == v"1.3" ? 0x3 :
-    v == v"1.4" ? 0x4 :
+  minor = if v == v"1.0"
+    0x0
+  elseif v == v"1.1"
+    0x1
+  elseif v == v"1.2"
+    0x2
+  elseif v == v"1.3"
+    0x3
+  elseif v == v"1.4"
+    0x4
+  else
     throw(ArgumentError("Unknown LAS version: $v"))
+  end
   (0x1, minor)
 end
 
@@ -83,4 +91,6 @@ end
 
 Base.write(io::Base.IO, guid::GUID) = write(io, guid.p1, guid.p2, guid.p3, guid.p4...)
 
-Base.zero(::Type{GUID}) = GUID(zero(UInt32), zero(UInt16), zero(UInt16), ntuple(_ -> zero(UInt8), 8))
+function Base.zero(::Type{GUID})
+  GUID(zero(UInt32), zero(UInt16), zero(UInt16), ntuple(_ -> zero(UInt8), 8))
+end

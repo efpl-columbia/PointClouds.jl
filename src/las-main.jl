@@ -2,7 +2,7 @@
 `LAS` represents point-cloud data in the ASPRS “LAS” format, consisting of a
 collection of [`PointRecord`](@ref)s as well as a number of global attributes
 describing the point-cloud data.
-Use [`Base.show`](https://docs.julialang.org/en/v1/base/io-network/#Base.show-Tuple{IO,%20Any}) to get a summary of the data, use indexing to access point records, use property access (e.g. `las.project_id`) to read global attributes, and use [`update`](@ref update(::LAS, ::NamedTuple)) to change global and per-point attributes.
+Use [`Base.show`](https://docs.julialang.org/en/v1/base/io-network/#Base.show-Tuple%7BIO,%20Any%7D) to get a summary of the data, use indexing to access point records, use property access (e.g. `las.project_id`) to read global attributes, and use [`update`](@ref update(::LAS, ::NamedTuple)) to change global and per-point attributes.
 
 # Point data records
 
@@ -35,23 +35,22 @@ field of `LAS`.
 
 # Global point cloud attributes
 
-- `coord_scale::NTuple{3,Float64}`
-- `coord_offset::NTuple{3,Float64}`
-- `coord_min::NTuple{3,Float64}`
-- `coord_max::NTuple{3,Float64}`
-- `return_counts::Vector{UInt64}`
-- `version::Tuple{UInt8,UInt8}`: The version of the LAS file format (1.0 to 1.4) in the form of a `(major, minor)` tuple.
-- `source_id::UInt16`
-- `project_id::GUID`
-- `system_id::String`
-- `software_id::String`
-- `creation_date::Tuple{UInt16,UInt16}`
-- `has_adjusted_standard_gps_time::Bool`
-- `has_internal_waveform::Bool`
-- `has_external_waveform::Bool`
-- `has_synthetic_return_numbers::Bool`
-- `has_well_known_text::Bool`
-
+  - `coord_scale::NTuple{3,Float64}`
+  - `coord_offset::NTuple{3,Float64}`
+  - `coord_min::NTuple{3,Float64}`
+  - `coord_max::NTuple{3,Float64}`
+  - `return_counts::Vector{UInt64}`
+  - `version::Tuple{UInt8,UInt8}`: The version of the LAS file format (1.0 to 1.4) in the form of a `(major, minor)` tuple.
+  - `source_id::UInt16`
+  - `project_id::GUID`
+  - `system_id::String`
+  - `software_id::String`
+  - `creation_date::Tuple{UInt16,UInt16}`
+  - `has_adjusted_standard_gps_time::Bool`
+  - `has_internal_waveform::Bool`
+  - `has_external_waveform::Bool`
+  - `has_synthetic_return_numbers::Bool`
+  - `has_well_known_text::Bool`
 """
 mutable struct LAS{P,V} <: AbstractPointCloud
 
@@ -96,8 +95,24 @@ Base.size(las::LAS) = size(las.points)
 Base.firstindex(las::LAS) = firstindex(las.points)
 Base.lastindex(las::LAS) = lastindex(las.points)
 Base.getindex(las::LAS, ind::Integer) = getindex(las.points, ind)
-Base.getindex(las::LAS, inds) = update(las, points = getindex(las.points, inds), coord_min = true, coord_max = true, return_counts = true)
-Base.filter(f::Function, las::LAS) = update(las, points = filter(f, las.points), coord_min = true, coord_max = true, return_counts = true)
+function Base.getindex(las::LAS, inds)
+  update(
+    las;
+    points = getindex(las.points, inds),
+    coord_min = true,
+    coord_max = true,
+    return_counts = true,
+  )
+end
+function Base.filter(f::Function, las::LAS)
+  update(
+    las;
+    points = filter(f, las.points),
+    coord_min = true,
+    coord_max = true,
+    return_counts = true,
+  )
+end
 function Base.filter!(f::Function, las::LAS)
   filter!(f, las.points)
   update!(las; coord_min = true, coord_max = true, return_counts = true)
@@ -145,14 +160,17 @@ struct MappedPoints{T<:PointRecord} <: AbstractVector{T}
   data::Vector{UInt8}
   function MappedPoints(::Type{T}, data::Vector{UInt8}) where {T<:PointRecord}
     @assert isconcretetype(T)
-    rem(length(data), point_record_bytes(T)) == 0 || @error "Point data has unexpected length (data may be truncated)"
+    rem(length(data), point_record_bytes(T)) == 0 ||
+      @error "Point data has unexpected length (data may be truncated)"
     new{T}(data)
   end
 end
 
 # iteration/indexing interface methods for memory-mapped point data
 Base.size(pts::MappedPoints) = (div(length(pts.data), point_record_bytes(eltype(pts))),)
-Base.iterate(pts::MappedPoints, ind = 1) = Base.isdone(pts, ind) ? nothing : (pts[ind], ind + 1)
+function Base.iterate(pts::MappedPoints, ind = 1)
+  Base.isdone(pts, ind) ? nothing : (pts[ind], ind + 1)
+end
 Base.isdone(pts::MappedPoints, ind = 1) = ind > length(pts)
 Base.getindex(pts::MappedPoints, inds::BitVector) = MaskedPoints(pts, inds)
 Base.getindex(pts::MappedPoints, inds::OrdinalRange) = IndexedPoints(pts, inds)
@@ -252,10 +270,10 @@ function Base.iterate(pts::IndexedPoints, args...)
   it = iterate(pts.indices, args...)
   isnothing(it) ? nothing : (pts.points[it[1]], it[2])
 end
-Base.getindex(pts::IndexedPoints, ind::Number) =
-  getindex(pts.points, pts.indices[ind])
-Base.getindex(pts::IndexedPoints, inds::OrdinalRange) =
+Base.getindex(pts::IndexedPoints, ind::Number) = getindex(pts.points, pts.indices[ind])
+function Base.getindex(pts::IndexedPoints, inds::OrdinalRange)
   IndexedPoints(pts.points, pts.indices[inds])
+end
 function Base.getindex(pts::IndexedPoints, inds::BitVector)
   length(inds) == length(pts) || throw(BoundsError(pts, inds))
   newinds = falses(length(pts.points))
@@ -291,8 +309,9 @@ function Base.iterate(pts::UpdatedPoints, args...)
   update(pt, map(a -> a[ind], pts.attributes)), (inner_state, ind + 1)
 end
 Base.isdone(pts::UpdatedPoints, args...) = isdone(pts.points, first.(args)...)
-Base.getindex(pts::UpdatedPoints, ind::Number) =
+function Base.getindex(pts::UpdatedPoints, ind::Number)
   update(pts.points[ind], map(a -> a[ind], pts.attributes))
+end
 function Base.getindex(pts::UpdatedPoints, inds)
   UpdatedPoints(pts.points[inds], map(a -> a[inds], pts.attributes))
 end
@@ -337,9 +356,12 @@ function Base.show(io::Base.IO, las::LAS)
   print(io, las.project_id)
   print(io, rpad("\n  System ID", pad), "=> \"", las.system_id, "\"")
   print(io, rpad("\n  Software ID", pad), "=> \"", las.software_id, "\"")
-  print(io, rpad("\n  X-Coordinates", pad), "=> ", las.coord_min[1], " … ", las.coord_max[1])
-  print(io, rpad("\n  Y-Coordinates", pad), "=> ", las.coord_min[2], " … ", las.coord_max[2])
-  print(io, rpad("\n  Z-Coordinates", pad), "=> ", las.coord_min[3], " … ", las.coord_max[3])
+  print(io, rpad("\n  X-Coordinates", pad), "=> ")
+  print(io, las.coord_min[1], " … ", las.coord_max[1])
+  print(io, rpad("\n  Y-Coordinates", pad), "=> ")
+  print(io, las.coord_min[2], " … ", las.coord_max[2])
+  print(io, rpad("\n  Z-Coordinates", pad), "=> ")
+  print(io, las.coord_min[3], " … ", las.coord_max[3])
 
   ret = map(enumerate(las.return_counts)) do (ind, count)
     iszero(count) ? missing : string(ind, " => ", format(count))
@@ -385,15 +407,15 @@ or as a `URI` from the `URIs`/`HTTP` package.
 
 # Keywords
 
-- `read_points`: If set to `:lazy` (default), points are only read to memory
-  when accessed, allowing processing of point clouds that do not fit into
-  memory. If set to `true`, all points are read into memory right away. If set
-  to `false`, points are not read at all and only header information is
-  available.
-- `cache`: Whether the downloaded data should be saved as a temporary file (if
-  set to `true`), saved to a specific path (if set to a string), or not saved
-  at all (if set to `false`, not supported for compressed LAZ data). Defaults
-  to `true` and only applies when the input is a URL.
+  - `read_points`: If set to `:lazy` (default), points are only read to memory
+    when accessed, allowing processing of point clouds that do not fit into
+    memory. If set to `true`, all points are read into memory right away. If set
+    to `false`, points are not read at all and only header information is
+    available.
+  - `cache`: Whether the downloaded data should be saved as a temporary file (if
+    set to `true`), saved to a specific path (if set to a string), or not saved
+    at all (if set to `false`, not supported for compressed LAZ data). Defaults
+    to `true` and only applies when the input is a URL.
 """
 Base.read(io::Base.IO, ::Type{LAS}; kws...) = LAS(io; kws...)
 Base.read(filename::AbstractString, ::Type{LAS}; kws...) = LAS(filename; kws...)
@@ -402,36 +424,39 @@ unwrap(io::IOContext) = unwrap(io.io)
 unwrap(io::Base.IO) = io
 
 function LAS(uri::HTTP.URI; cache = true, kws...)
-    isfile(cache) && return LAS(cache; kws...)
+  isfile(cache) && return LAS(cache; kws...)
 
-    # if points are not required, try to download only the header data
-    if get(kws, :read_points, true) == false
-      # check if HTTP range requests are supported
-      if HTTP.header(HTTP.head(file), "Accept-Ranges", "none") == "bytes"
-        point_offset = only(reinterpret(UInt32, HTTP.request("GET", file, ("Range" => "bytes=96-99", )).body))
-        las_head = HTTP.get(file, ("Range" => "bytes=0-$point_offset", )).body
-        return LAS(IOBuffer(las_head); kws...)
-      else
-        @warn "Server does not support range requests, downloading whole file"
-      end
+  # if points are not required, try to download only the header data
+  if get(kws, :read_points, true) == false
+    # check if HTTP range requests are supported
+    if HTTP.header(HTTP.head(file), "Accept-Ranges", "none") == "bytes"
+      point_offset = only(
+        reinterpret(UInt32, HTTP.request("GET", file, ("Range" => "bytes=96-99",)).body),
+      )
+      las_head = HTTP.get(file, ("Range" => "bytes=0-$point_offset",)).body
+      return LAS(IOBuffer(las_head); kws...)
+    else
+      @warn "Server does not support range requests, downloading whole file"
     end
+  end
 
-    # downloading to cache
-    if cache == false
-      @info "Downloading LAS data to memory"
-      return LAS(IOBuffer(HTTP.get(file).body); kws...)
-    end
+  # downloading to cache
+  if cache == false
+    @info "Downloading LAS data to memory"
+    return LAS(IOBuffer(HTTP.get(file).body); kws...)
+  end
 
-    cache = cache == true ? tempname() : cache
-    @info "Downloading LAS data to `$cache`"
-    HTTP.download(file, cache)
-    LAS(cache; kws...)
+  cache = cache == true ? tempname() : cache
+  @info "Downloading LAS data to `$cache`"
+  HTTP.download(file, cache)
+  LAS(cache; kws...)
 end
 
 function LAS(input::AbstractString; kws...)
   # pass file name in context in case we need access to the original file
   @debug "reading LAS from $input"
-  isfile(input) && return open(io -> LAS(IOContext(io, :filename => input); kws...), input, "r")
+  isfile(input) &&
+    return open(io -> LAS(IOContext(io, :filename => input); kws...), input, "r")
 
   # download data if URL was supplied
   startswith(input, "http") && return LAS(HTTP.URI(input); kws...)
@@ -709,10 +734,10 @@ Write point-cloud data to a new LAS file or an arbitrary `IO` output.
 
 # Keywords
 
-- `format`: Can be set to `"las"` for regular uncompressed LAS data, or to
-  `"laz"` to compress the output with
-  [LASzip](https://github.com/LASzip/LASzip). By default, the format is derived
-  from the file extension or set to `"las"` otherwise.
+  - `format`: Can be set to `"las"` for regular uncompressed LAS data, or to
+    `"laz"` to compress the output with
+    [LASzip](https://github.com/LASzip/LASzip). By default, the format is derived
+    from the file extension or set to `"las"` otherwise.
 """
 function Base.write(io::Base.IO, las::LAS; format = "las")
   format = lowercase(format)
@@ -844,7 +869,13 @@ Create a new `LAS` with points of type `T <: PointRecord`. The `points` can be
 passed as an `AbstractVector` of `PointRecord`s or as a `NamedTuple`, where the
 keys correspond to the point attribute names and the values are `AbstractVector`s. The keyword arguments set the corresponding fields of the `LAS` type.
 """
-function LAS(::Type{T}, points::NamedTuple; coord_scale = nothing, coord_offset = nothing, kws...) where {T<:PointRecord}
+function LAS(
+  ::Type{T},
+  points::NamedTuple;
+  coord_scale = nothing,
+  coord_offset = nothing,
+  kws...,
+) where {T<:PointRecord}
   coords = (points.x, points.y, points.z)
   scalings = pick_scalings(coords; scale = coord_scale, offset = coord_offset)
   points = las_points(T, points; scalings...)
@@ -856,24 +887,25 @@ function LAS(points::NamedTuple; kws...)
   LAS(PointRecord{6,extra_bytes}, points; kws...)
 end
 
-function LAS(points::Vector{<:PointRecord};
-             # rescaling of coordinate numbers
-             coord_scale::NTuple{3,Float64} = (1.0, 1.0, 1.0),
-             coord_offset::NTuple{3,Float64} = (0.0, 0.0, 0.0),
-             # file metadata
-             version = v"1.4",
-             source_id::Integer = 0,
-             project_id::GUID = zero(GUID),
-             system_id::String = "",
-             software_id::String = "PointClouds.jl",
-             creation_date::Dates.Date = Dates.today(),
-             # encoding flags
-             has_adjusted_standard_gps_time::Bool = false,
-             has_internal_waveform::Bool = false,
-             has_external_waveform::Bool = false,
-             has_synthetic_return_numbers::Bool = false,
-             has_well_known_text::Bool = false,
-             )
+function LAS(
+  points::Vector{<:PointRecord};
+  # rescaling of coordinate numbers
+  coord_scale::NTuple{3,Float64} = (1.0, 1.0, 1.0),
+  coord_offset::NTuple{3,Float64} = (0.0, 0.0, 0.0),
+  # file metadata
+  version = v"1.4",
+  source_id::Integer = 0,
+  project_id::GUID = zero(GUID),
+  system_id::String = "",
+  software_id::String = "PointClouds.jl",
+  creation_date::Dates.Date = Dates.today(),
+  # encoding flags
+  has_adjusted_standard_gps_time::Bool = false,
+  has_internal_waveform::Bool = false,
+  has_external_waveform::Bool = false,
+  has_synthetic_return_numbers::Bool = false,
+  has_well_known_text::Bool = false,
+)
 
   # validate/normalize input
   version = las_version(version)
@@ -967,7 +999,9 @@ function LAS(las::LAS; extent = nothing)
   )
 end
 
-recompute_summary(las::LAS) = recompute_summary(las.coord_scale, las.coord_offset, las.points)
+function recompute_summary(las::LAS)
+  recompute_summary(las.coord_scale, las.coord_offset, las.points)
+end
 
 function recompute_summary(coord_scale, coord_offset, points)
   return_counts = zeros(UInt64, 15)
@@ -994,19 +1028,16 @@ points, pass a range of indices or `:` as the `index` argument.
 
 # Keywords
 
-- `crs`: Transform the coordinates to a new coordinate reference system `crs`
-  instead of the current CRS of the `LAS`.
+  - `crs`: Transform the coordinates to a new coordinate reference system `crs`
+    instead of the current CRS of the `LAS`.
 """
-coordinates(las::LAS, pts; kws...) =
-  coordinates.((las,), pts; kws...)
-coordinates(las::LAS, ind::Integer; kws...) =
-  coordinates(las, getindex(las, ind); kws...)
+coordinates(las::LAS, pts; kws...) = coordinates.((las,), pts; kws...)
+coordinates(las::LAS, ind::Integer; kws...) = coordinates(las, getindex(las, ind); kws...)
 
 function coordinates(las::LAS, pt::PointRecord; crs = nothing)
   tf = gettransform(las, crs)
   tf(integer_coordinates(pt) .* las.coord_scale .+ las.coord_offset)
 end
-
 
 """
     coordinates(las::LAS; crs)
@@ -1031,15 +1062,35 @@ range `typemin(UInt16)` to `typemax(UInt16)`.
 See also: `color_channels`
 """
 
-for op in (intensity, color_channels, scan_angle, gps_time, waveform_packet, source_id, user_data, extra_bytes, return_number, return_count, classification, scanner_channel, is_synthetic, is_key_point, is_withheld, is_overlap, is_left_to_right, is_right_to_left, is_edge_of_line)
+for op in (
+  intensity,
+  color_channels,
+  scan_angle,
+  gps_time,
+  waveform_packet,
+  source_id,
+  user_data,
+  extra_bytes,
+  return_number,
+  return_count,
+  classification,
+  scanner_channel,
+  is_synthetic,
+  is_key_point,
+  is_withheld,
+  is_overlap,
+  is_left_to_right,
+  is_right_to_left,
+  is_edge_of_line,
+)
   op = nameof(op)
   eval(quote
     $op(las::LAS, ind::Integer) = $op(las[ind])
     $op(las::LAS, inds) = [$op(las, ind) for ind in inds]
     $op(las::LAS, ::Colon) = [$op(pt) for pt in las]
-    $op(::Type{T}, las::LAS, ind::Integer) where T = $op(T, las[ind])
-    $op(::Type{T}, las::LAS, inds) where T = [$op(T, las[ind]) for ind in inds]
-    $op(::Type{T}, las::LAS, ::Colon) where T = [$op(T, pt) for pt in las]
+    $op(::Type{T}, las::LAS, ind::Integer) where {T} = $op(T, las[ind])
+    $op(::Type{T}, las::LAS, inds) where {T} = [$op(T, las[ind]) for ind in inds]
+    $op(::Type{T}, las::LAS, ::Colon) where {T} = [$op(T, pt) for pt in las]
   end)
 end
 
@@ -1143,5 +1194,6 @@ be modified in-place.
 See also: [`update`](@ref)
 """
 function update!(las::LAS, attributes::NamedTuple = (;); kws...)
+  # TODO: in-place update where possible
   error("Not yet implemented")
 end

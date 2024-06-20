@@ -11,14 +11,13 @@ The attributes of point records can be accessed with the functions below;
 directly accessing struct fields is discouraged. Note that some attributes are
 not all available for all PDRFs.
 
-- 3D position: [`coordinates`](@ref)
-- color information: [`color_channels`](@ref) *(RGB for PDRFs 2/3/5/7, RGB + NIR for PDRFs 8/10)*
-- time at which point was recorded: [`gps_time`](@ref) *(PDRFs 1 & 3–10)*
-- information about the laser pulse return: [`intensity`](@ref), [`return_number`](@ref), [`return_count`](@ref), [`waveform_packet`](@ref) *(PDRFs 4/5/9/10 only)*
-- scanner/flight path information: [`scan_angle`](@ref) *(higher resolution for PDRFs 6–10)*, [`is_left_to_right`](@ref), [`is_right_to_left`](@ref), [`is_edge_of_line`](@ref), [`scanner_channel`](@ref) *(PDRFs 6–10 only)*, [`source_id`](@ref)
-- point record classification: [`classification`](@ref), [`is_key_point`](@ref), [`is_overlap`](#) *(all PDRFs, based on classification for PDRF 0–5)*, [`is_synthetic`](@ref), [`is_withheld`](@ref)
-- custom attributes: [`user_data`](@ref), [`extra_bytes`](@ref)
-
+  - 3D position: [`coordinates`](@ref)
+  - color information: [`color_channels`](@ref) *(RGB for PDRFs 2/3/5/7, RGB + NIR for PDRFs 8/10)*
+  - time at which point was recorded: [`gps_time`](@ref) *(PDRFs 1 & 3–10)*
+  - information about the laser pulse return: [`intensity`](@ref), [`return_number`](@ref), [`return_count`](@ref), [`waveform_packet`](@ref) *(PDRFs 4/5/9/10 only)*
+  - scanner/flight path information: [`scan_angle`](@ref) *(higher resolution for PDRFs 6–10)*, [`is_left_to_right`](@ref), [`is_right_to_left`](@ref), [`is_edge_of_line`](@ref), [`scanner_channel`](@ref) *(PDRFs 6–10 only)*, [`source_id`](@ref)
+  - point record classification: [`classification`](@ref), [`is_key_point`](@ref), [`is_overlap`](#) *(all PDRFs, based on classification for PDRF 0–5)*, [`is_synthetic`](@ref), [`is_withheld`](@ref)
+  - custom attributes: [`user_data`](@ref), [`extra_bytes`](@ref)
 """
 abstract type PointRecord{F,N} end
 
@@ -391,7 +390,8 @@ Check whether the point is marked as *overlap*, e.g. of two flight paths. This
 is recorded as a classification (class 12) or as a separate flag (PDRFs 6–10
 only) to allow for further classification of overlap points.
 """
-is_overlap(pt::PointRecord) = classification(pt) == 12 || !iszero(pt.attributes[2] & 0b00001000) # bit 3
+is_overlap(pt::PointRecord) =
+  classification(pt) == 12 || !iszero(pt.attributes[2] & 0b00001000) # bit 3
 
 """
     scanner_channel(p::PointRecord)
@@ -453,8 +453,7 @@ meanings for the classes 0–9, with additional definitions for model key points
 
 See also: [`is_key_point`](@ref), [`is_overlap`](@ref), [`is_synthetic`](@ref), [`is_withheld`](@ref)
 """
-classification(::Type{T}, pt::PointRecord) where {T<:Integer} =
-    convert(T, pt.attributes[3]) # bits 0–7
+classification(::Type{T}, pt::PointRecord) where {T<:Integer} = convert(T, pt.attributes[3]) # bits 0–7
 classification(pt::PointRecord) = classification(UInt8, pt)
 
 # decode attribute bits for legacy formats
@@ -463,14 +462,14 @@ return_count(pt::LegacyPointRecord) = (pt.attributes[1] & 0b00111000) >> 3 # bit
 is_left_to_right(pt::LegacyPointRecord) = !iszero(pt.attributes[1] & 0b01000000) # bit 6
 is_right_to_left(pt::LegacyPointRecord) = !is_left_to_right(pt)
 is_edge_of_line(pt::LegacyPointRecord) = !iszero(pt.attributes[1] & 0b10000000) # bit 7
-classification(::Type{T}, pt::LegacyPointRecord) where {T<:Integer} =
-    convert(T, pt.attributes[2] & 0b00011111) # bits 0–4
+function classification(::Type{T}, pt::LegacyPointRecord) where {T<:Integer}
+  convert(T, pt.attributes[2] & 0b00011111) # bits 0–4
+end
 is_synthetic(pt::LegacyPointRecord) = !iszero(pt.attributes[2] & 0b00100000) # bit 5
 is_key_point(pt::LegacyPointRecord) = !iszero(pt.attributes[2] & 0b01000000) # bit 6
 is_withheld(pt::LegacyPointRecord) = !iszero(pt.attributes[2] & 0b10000000) # bit 7
 is_overlap(pt::LegacyPointRecord) = classification(pt) == 12
 scanner_channel(::LegacyPointRecord) = missing
-
 
 core_fields(pt) = core_fields(typeof(pt), pt)
 function core_fields(::Type{<:LegacyPointRecord}, pt)
@@ -619,9 +618,7 @@ point_record_bytes(T::Type{<:PointRecord}) = sum(sizeof(t) for t in fieldtypes(T
 function point_record_description(::Type{<:PointRecord{F,N}}) where {F,N}
   string("PDRF ", F, iszero(N) ? "" : " with $N extra byte" * 's'^(N > 1))
 end
-function point_record_description(::Type{<:PointRecord{F}}) where {F}
-  string("PDRF ", F)
-end
+point_record_description(::Type{<:PointRecord{F}}) where {F} = string("PDRF ", F)
 function point_record_description(::Type{UnknownPointRecord{F,N}}) where {F,N}
   "unsupported $N-byte PDRF $F"
 end
@@ -630,8 +627,10 @@ abstract_record_type(::Type{<:PointRecord{F,N}}) where {F,N} = PointRecord{F,N}
 abstract_record_type(::Type{<:PointRecord{F,0}}) where {F} = PointRecord{F}
 abstract_record_type(::Type{UnknownPointRecord{F,N}}) where {F,N} = UnknownPointRecord{F,N}
 
-point_record_type(::Type{T}) where {F,N,T<:PointRecord{F,N}} =
-  isconcretetype(T) ? T : point_record_type(F){N} # convert to concrete type
+function point_record_type(::Type{T}) where {F,N,T<:PointRecord{F,N}}
+  # convert to a concrete type
+  isconcretetype(T) ? T : point_record_type(F){N}
+end
 
 point_record_type(::Type{T}) where {F,T<:PointRecord{F}} = point_record_type(F){0}
 
@@ -701,7 +700,12 @@ function pick_scalings(coords; scale, offset)
 end
 
 function las_points(::Type{T}, attrs; coord_scale, coord_offset) where {T<:PointRecord}
-  @assert isconcretetype(T) || return las_points(point_record_type(T), attrs; coord_scale = coord_scale, coord_offset = coord_offset)
+  @assert isconcretetype(T) || return las_points(
+    point_record_type(T),
+    attrs;
+    coord_scale = coord_scale,
+    coord_offset = coord_offset,
+  )
   @assert haskey(attrs, :x)
   @assert haskey(attrs, :y)
   @assert haskey(attrs, :z)
@@ -747,32 +751,33 @@ function encode_attributes_unused(::Type{T}, attrs::NamedTuple) where {T<:PointR
   count = length(first(attrs))
 end
 
-attribute_sizes(::Type{<:PointRecord}) = (
-  return_number = 4,
-  return_count = 4,
-  is_synthetic = 1,
-  is_key_point = 1,
+function attribute_sizes(::Type{<:PointRecord})
+  (
+    return_number = 4,
+    return_count = 4,
+    is_synthetic = 1,
+    is_key_point = 1,
+    is_withheld = 1,
+    is_overlap = 1,
+    scanner_channel = 2,
+    is_left_to_right = 1,
+    is_edge_of_line = 1,
+    classification = 8,
+  )
+end
 
-  is_withheld = 1,
-  is_overlap = 1,
-  scanner_channel = 2,
-  is_left_to_right = 1,
-  is_edge_of_line = 1,
-
-  classification = 8,
-)
-
-attribute_sizes(::Type{<:LegacyPointRecord}) = (
-  return_number = 3,
-  return_count = 3,
-  is_left_to_right = 1,
-  is_edge_of_line = 1,
-
-  classification = 5,
-  is_synthetic = 1,
-  is_key_point = 1,
-  is_withheld = 1,
-)
+function attribute_sizes(::Type{<:LegacyPointRecord})
+  (
+    return_number = 3,
+    return_count = 3,
+    is_left_to_right = 1,
+    is_edge_of_line = 1,
+    classification = 5,
+    is_synthetic = 1,
+    is_key_point = 1,
+    is_withheld = 1,
+  )
+end
 
 attribute_sizes(pts::AbstractArray) = attribute_sizes(eltype(pts))
 @assert sum(attribute_sizes(PointRecord{6})) == 24
@@ -783,7 +788,10 @@ function normalized_attributes(pts, attrs)
   ATTRS = attribute_sizes(pts)
   # rename left-to-right
   ltr, rtl = :is_left_to_right, :is_right_to_left
-  encoded = NamedTuple(k == rtl ? ltr => .!v : k => v for (k, v) in pairs(attrs) if haskey(ATTRS, k) || k == rtl)
+  encoded = NamedTuple(
+    k == rtl ? ltr => .!v : k => v for
+    (k, v) in pairs(attrs) if haskey(ATTRS, k) || k == rtl
+  )
   isempty(encoded) && return attrs
   rest = NamedTuple(k => v for (k, v) in pairs(attrs) if !haskey(ATTRS, k))
 
@@ -791,11 +799,17 @@ function normalized_attributes(pts, attrs)
 end
 
 pad_attributes(::Type{<:PointRecord}, _) = zero(UInt32)
-pad_attributes(pts::AbstractVector{<:PointRecord}, ind) = reinterpret(UInt32, (encoded_attributes(NTuple{3,UInt8}, pts[ind])..., 0x0))
-pad_attributes(pts::AbstractVector{<:LegacyPointRecord}, ind) = reinterpret(UInt32, (encoded_attributes(NTuple{2,UInt8}, pts[ind])..., 0x0, 0x0))
+function pad_attributes(pts::AbstractVector{<:PointRecord}, ind)
+  reinterpret(UInt32, (encoded_attributes(NTuple{3,UInt8}, pts[ind])..., 0x0))
+end
+function pad_attributes(pts::AbstractVector{<:LegacyPointRecord}, ind)
+  reinterpret(UInt32, (encoded_attributes(NTuple{2,UInt8}, pts[ind])..., 0x0, 0x0))
+end
 unpad_attributes(pts::AbstractVector, ind) = unpad_attributes(eltype(pts), ind)
 unpad_attributes(T::Type{<:PointRecord}, attr) = reinterpret(NTuple{4,UInt8}, attr)[1:3]
-unpad_attributes(T::Type{<:LegacyPointRecord}, attr) = reinterpret(NTuple{4,UInt8}, attr)[1:2]
+function unpad_attributes(T::Type{<:LegacyPointRecord}, attr)
+  reinterpret(NTuple{4,UInt8}, attr)[1:2]
+end
 
 function encode_attributes(pts::Union{AbstractVector,Type}, attrs::NamedTuple)
   # note: pts can be array or just the point type
@@ -815,14 +829,16 @@ function encode_attributes(pts::Union{AbstractVector,Type}, attrs::NamedTuple)
     if T == Integer
       minval, maxval = extrema(vals)
       attrmax = (1 << ATTRS[key])
-      0 <= minval <= maxval < attrmax || error("Values for `$key` must be in the range [0, $attrmax)")
+      0 <= minval <= maxval < attrmax ||
+        error("Values for `$key` must be in the range [0, $attrmax)")
     end
   end
 
   # find position of attributes
-  findshift(k) = sum(values(ATTRS)[1:findfirst(==(k), keys(ATTRS))-1], init = 0)
+  findshift(k) = sum(values(ATTRS)[1:findfirst(==(k), keys(ATTRS))-1]; init = 0)
   shifts = NamedTuple(k => findshift(k) for k in keys(attrs))
-  masks = NamedTuple(k => ~(((0x1 << ATTRS[k]) - UInt32(1)) << shifts[k]) for k in keys(attrs))
+  masks =
+    NamedTuple(k => ~(((0x1 << ATTRS[k]) - UInt32(1)) << shifts[k]) for k in keys(attrs))
 
   map(1:ptcount) do ind
     attr = pad_attributes(pts, ind)

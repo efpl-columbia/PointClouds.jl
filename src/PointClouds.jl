@@ -1,6 +1,16 @@
 module PointClouds
 
-export PointCloud, LAS, getcrs, update, update!, PointRecord, rasterize, neighbors, neighbors!, apply, transform
+export PointCloud,
+  LAS,
+  getcrs,
+  update,
+  update!,
+  PointRecord,
+  rasterize,
+  neighbors,
+  neighbors!,
+  apply,
+  transform
 
 # accessors for point attributes
 export classification,
