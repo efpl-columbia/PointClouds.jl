@@ -84,12 +84,14 @@ function check_pdal_samples(; verbose)
       redirect_stderr(verbose ? stderr : devnull) do
         verbose && println(stderr, "→ $(sample)")
         path_in = joinpath(dir, replace(sample, '/' => "-"))
-        path_out = tempname() * ".las"
         @test expected_mismatch == let
           las = LAS(pdal_url * sample; cache = path_in)
           println(stderr, las)
-          write(path_out, las)
-          mismatch = compare_files(path_in, path_out)
+          mismatch = mktemp() do path_out, io
+            write(io, las)
+            close(io)
+            compare_files(path_in, path_out)
+          end
           interpret_mismatch(mismatch, las)
         end
         if !occursin("garbage", sample)
