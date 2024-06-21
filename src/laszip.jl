@@ -8,7 +8,7 @@ function laszip_version()
   build = Ref{Cuint}()
   rval = ccall(
     (:laszip_get_version, laszip),
-    Int32,
+    Cint,
     (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt16}, Ptr{UInt32}),
     major,
     minor,
@@ -89,14 +89,14 @@ end
 
 function LASzipReader(filename, ::Type{T}, count) where {T}
   reader = Ref{Ptr{Cvoid}}()
-  rval = ccall((:laszip_create, laszip), Int32, (Ptr{Ptr{Cvoid}},), reader)
+  rval = ccall((:laszip_create, laszip), Cint, (Ptr{Ptr{Cvoid}},), reader)
   iszero(rval) || error("Could not create LASzip reader ($rval)")
   finalizer(r -> close_reader(r[], filename), reader)
 
   is_compressed = Ref{Cint}(0)
   rval = ccall(
     (:laszip_open_reader, laszip),
-    Int32,
+    Cint,
     (Ptr{Cvoid}, Ptr{UInt8}, Ptr{Cint}),
     reader[],
     filename,
@@ -109,7 +109,7 @@ function LASzipReader(filename, ::Type{T}, count) where {T}
   point_ptr = Ref{Ptr{LASzipPoint}}()
   rval = ccall(
     (:laszip_get_point_pointer, laszip),
-    Int32,
+    Cint,
     (Ptr{Cvoid}, Ref{Ptr{LASzipPoint}}),
     reader[],
     point_ptr,
@@ -125,9 +125,9 @@ function close_reader(r::Ptr{Cvoid}, filename)
     @async @debug "LASzip reader for $filename is already closed"
     return
   end
-  rval = ccall((:laszip_close_reader, laszip), Int32, (Ptr{Cvoid},), r)
+  rval = ccall((:laszip_close_reader, laszip), Cint, (Ptr{Cvoid},), r)
   iszero(rval) || @async @error "Could not close LASzip reader for `$filename` ($rval)"
-  rval = ccall((:laszip_destroy, laszip), Int32, (Ptr{Cvoid},), r)
+  rval = ccall((:laszip_destroy, laszip), Cint, (Ptr{Cvoid},), r)
   iszero(rval) || @async @error "Could not destroy LASzip reader for `$filename` ($rval)"
   @async @debug "Successfully closed LASzip reader for $filename"
 end
@@ -150,7 +150,7 @@ function Base.getindex(laz::LASzipReader, ind::Integer)
   if laz.current_index[] != ind - 1
     rval = ccall(
       (:laszip_seek_point, laszip),
-      Int32,
+      Cint,
       (Ptr{Cvoid}, Clonglong),
       laz.reader[],
       ind - 1,
@@ -158,7 +158,7 @@ function Base.getindex(laz::LASzipReader, ind::Integer)
     iszero(rval) || @error("Could not seek LASzip point ($rval)")
     laz.current_index[] = ind - 1
   end
-  rval = ccall((:laszip_read_point, laszip), Int32, (Ptr{Cvoid},), laz.reader[])
+  rval = ccall((:laszip_read_point, laszip), Cint, (Ptr{Cvoid},), laz.reader[])
   iszero(rval) || @error("Could not read LASzip point ($rval)")
   laz.current_index[] += 1
   convert(eltype(laz), laz.current_point[])
