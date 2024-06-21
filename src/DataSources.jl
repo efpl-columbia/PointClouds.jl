@@ -65,7 +65,7 @@ tiledir(tile::PointCloudTile{LocalPath}) = dirname(tile.data.path)
 
 function tiledir(src::Type{<:DataSource})
   proj = BaseDirs.Project("PointClouds")
-  BaseDirs.User.cache(proj, "tiles", string(src))
+  BaseDirs.User.cache(proj, string(nameof(src)))
 end
 
 function uri(t::PointCloudTile{S}) where {S}
