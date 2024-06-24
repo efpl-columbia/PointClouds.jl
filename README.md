@@ -36,17 +36,47 @@ For more details, see the [documentation](https://docs.mfsch.dev/PointClouds.jl)
 
 ## Quickstart
 
-PointClouds.jl is not yet available in the Julia package repository. It can be added to a [Julia environment](https://pkgdocs.julialang.org/v1/getting-started/#Getting-Started-with-Environments) by using the link of the [GitHub repository](https://github.com/efpl-columbia/PointClouds.jl), e.g.
+To start using PointClouds.jl, add it to a [Julia environment](https://pkgdocs.julialang.org/v1/getting-started/#Getting-Started-with-Environments) e.g. using the [Pkg REPL](https://pkgdocs.julialang.org/v1/getting-started/#Basic-Usage):
 
 ```julia-repl
-pkg> add https://github.com/efpl-columbia/PointClouds.jl
+(@v1.10) pkg> add PointClouds
 ```
+
+> [!TIP]
+> Since PointClouds.jl is rather new and under active development,
+> backwards-incompatible changes may occur regularly. It is therefore
+> recommended to add a specific version to your Julia environment (e.g. with
+> [`Pkg.compat`](https://pkgdocs.julialang.org/v1/api/#Pkg.compat) or
+> [`Pkg.pin`](https://pkgdocs.julialang.org/v1/api/#Pkg.pin) and to be careful
+> when updating to new (non-patch) versions.
 
 After that, the package can be loaded as usual:
 
-```jldoctest
+```julia-repl
 julia> using PointClouds
 ```
+
+Load a LAS/LAZ file to access the point data:
+
+```julia-repl
+julia> pts = LAS("USGS_LPC_Sandy_Supplemental_NCR_VA_MD_DC_QL2_LiDAR_18SUJ322306.laz")
+16,107,898-point LAZ (v1.2, PDRF 1, 01 Jun 2015)
+  Source ID     => 65535
+  Project ID    => AEB2BAA1-2BEF-41FC-B9BB-BDA288E8D77B
+  System ID     => ""
+  Software ID   => "GeoCue LAS Updater"
+  X-Coordinates => 322500.0 … 323999.99
+  Y-Coordinates => 4.3065e6 … 4.30799999e6
+  Z-Coordinates => -88.88 … 767.73
+  Return-Counts => [1 => 13,783,924, 2 => 1,993,048, 3 => 310,661, 4 => 19,622, 5 => 643]
+  Extra Data    => [0x00, 0x00, 0xdd, 0xcc]
+  Variable-Length Records
+    => LASF_Projection[34735] "GeoTiff Projection Keys" (200 bytes)
+    => LASF_Projection[34736] "GeoTiff double parameters" (80 bytes)
+    => LASF_Projection[34737] "GeoTiff ASCII parameters" (217 bytes)
+```
+
+Refer to [the documentation](https://docs.mfsch.dev/PointClouds.jl) to learn how to [work with LAS/LAZ data](https://docs.mfsch.dev/PointClouds.jl/input-output/), [load point data from public datasets](https://docs.mfsch.dev/PointClouds.jl/data-sources/), and [set up in-memory processing pipelines](https://docs.mfsch.dev/PointClouds.jl/point-processing/). Follow [the tutorial](https://docs.mfsch.dev/PointClouds.jl/tutorial/) for a more in-depth introduction.
 
 ## Attribution & License
 

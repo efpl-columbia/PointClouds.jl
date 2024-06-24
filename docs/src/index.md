@@ -43,25 +43,18 @@ For more details, see the [table of contents](@ref "Contents of documentation") 
 
 ## Installation
 
-PointClouds.jl is not yet available in the Julia package repository. It can be added to a [Julia environment](https://pkgdocs.julialang.org/v1/getting-started/#Getting-Started-with-Environments) by using the link of the [GitHub repository](https://github.com/efpl-columbia/PointClouds.jl), e.g.
+PointClouds.jl is available in the official Julia package registry.
+Add it to a [Julia environment](https://pkgdocs.julialang.org/v1/getting-started/#Getting-Started-with-Environments) using e.g. the [Pkg REPL](https://pkgdocs.julialang.org/v1/getting-started/#Basic-Usage):
 
 ```julia-repl
-pkg> add https://github.com/efpl-columbia/PointClouds.jl
+(@v1.10) pkg> add PointClouds
 ```
 
-After that, the package can be loaded as usual:
-
-```jldoctest
-julia> using PointClouds
-```
+Follow [the tutorial](@ref "Tutorial") for an introduction to the functionality of PointClouds.jl.
 
 !!! note
-    Since PointClouds.jl is rather new and under active development,
-    backwards-incompatible changes may occur regularly. It is therefore
-    recommended to add a specific version to your Julia project and to be
-    careful when updating to new versions. Refer to the [Pkg.jl
-    documentation](https://pkgdocs.julialang.org) to learn how to manage
-    package versions.
+    Since PointClouds.jl is rather new and under active development, backwards-incompatible changes may occur regularly.
+    It is therefore recommended to add a specific version to your Julia environment (e.g. with [`Pkg.compat`](https://pkgdocs.julialang.org/v1/api/#Pkg.compat) or [`Pkg.pin`](https://pkgdocs.julialang.org/v1/api/#Pkg.pin) and to be careful when updating to new (non-patch) versions.
 
 ## Contents of documentation
 
