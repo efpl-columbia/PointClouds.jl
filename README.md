@@ -78,6 +78,13 @@ julia> pts = LAS("USGS_LPC_Sandy_Supplemental_NCR_VA_MD_DC_QL2_LiDAR_18SUJ322306
 
 Refer to [the documentation](https://docs.mfsch.dev/PointClouds.jl) to learn how to [work with LAS/LAZ data](https://docs.mfsch.dev/PointClouds.jl/input-output/), [load point data from public datasets](https://docs.mfsch.dev/PointClouds.jl/data-sources/), and [set up in-memory processing pipelines](https://docs.mfsch.dev/PointClouds.jl/point-processing/). Follow [the tutorial](https://docs.mfsch.dev/PointClouds.jl/tutorial/) for a more in-depth introduction.
 
+## Help & Contributing
+
+If you run into a problem or would like to request a new feature, feel free to [create a new issue](https://github.com/efpl-columbia/PointClouds.jl/issues/new) after checking the [list of open issues](https://github.com/efpl-columbia/PointClouds.jl/issues).
+
+We also welcome contributions to the code, the tests, and the documentation – feel free to open a [pull request](https://github.com/efpl-columbia/PointClouds.jl/pulls).
+If you want to make sure your work fits within the plans and scope of PointClouds.jl, it might be best to first open an issue or draft PR to discuss the changes, especially when a significant amount of work is involved.
+
 ## Attribution & License
 
 [![MIT License](https://img.shields.io/badge/License-MIT-D2D2C0)](./LICENSE.md)
