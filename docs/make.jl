@@ -6,7 +6,6 @@ Documenter.DocMeta.setdocmeta!(PointClouds, :DocTestSetup, :(using PointClouds);
 Documenter.makedocs(
   sitename = "PointClouds.jl",
   repo = Documenter.Remotes.GitHub("efpl-columbia", "PointClouds.jl"),
-  remotes = nothing,
   root = @__DIR__,
   pages = [
     "Overview" => "index.md",
@@ -16,7 +15,8 @@ Documenter.makedocs(
     "data-sources.md",
   ],
   modules = [PointClouds],
-  checkdocs = :none,
+  checkdocs = :exports,
+  linkcheck = true,
   format = Documenter.HTML(
     edit_link = nothing,
     prettyurls = get(ENV, "PRETTY_URLS", "") == "true",
