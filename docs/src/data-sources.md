@@ -54,7 +54,7 @@ The raw point-cloud data is made available in the [ScienceBase catalog](https://
     website](https://www.sciencebase.gov/catalog/) is currently unavailable. If
     this is the case, try again later or fall back to manual browsing on the
     [USGS file
-    server](http://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/).
+    server](https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/).
     Note that other USGS services such as the [3DEP Lidar
     Explorer](https://www.usgs.gov/NationalMap/LidarExplorer) and [TNM
     Access](https://apps.nationalmap.gov/tnmaccess/) also depend on ScienceBase
