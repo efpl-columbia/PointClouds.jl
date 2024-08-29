@@ -1,4 +1,6 @@
-# Explore & Process 3D Point-Cloud Data
+# PointClouds.jl
+
+*Fast & flexible processing of lidar data*
 
 [PointClouds.jl](https://github.com/efpl-columbia/PointClouds.jl) lets you
 query publicly available lidar point-cloud datasets, download the data for
@@ -88,7 +90,5 @@ If you want to make sure your work fits within the plans and scope of PointCloud
 ## Attribution & License
 
 [![MIT License](https://img.shields.io/badge/License-MIT-D2D2C0)](./LICENSE.md)
-
-PointClouds.jl was created by [Manuel F. Schmid](https://orcid.org/0000-0002-7880-9913) as part of a research project of the [Environmental Flow Physics Lab](https://efpl.engineering.columbia.edu) at [Columbia University](https://www.columbia.edu) and Amazon Prime Air, lead by [Marco G. Giometto](https://orcid.org/0000-0001-9661-0599) and Jeff Massey.
 
 PointClouds.jl is freely available under the terms of the [MIT License](./LICENSE.md).
