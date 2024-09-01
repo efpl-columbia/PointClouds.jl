@@ -75,6 +75,12 @@ function test_las_create()
   @test LAS(tmp).system_id == "custom"
   @test coordinates(LAS(tmp), 1) == (data.x[1], data.y[1], data.z[1])
 
+  # read headers without points
+  let las = LAS(tmp; read_points = false)
+    @test length(las) == 5
+    @test_throws ErrorException las[1]
+  end
+
   # create & write subset of points
   @test las[1:3] == las[(1:5).<=3]
   @test extrema(las[2:4]) == ((2.0, 102.0, 200.0), (4.0, 104.0, 400.0))

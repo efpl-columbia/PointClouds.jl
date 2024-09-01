@@ -643,7 +643,7 @@ function LAS(io::Base.IO; read_points = :auto, override_crs = nothing)
   pdrf_type = point_record_type(pdrf_number, pdrf_bytes)
   points = if read_points == false
     # do not read points, just save point type & count
-    (pdrf_type, point_count_total)
+    UnavailablePoints{pdrf_type}(point_count_total)
   elseif read_points == :laszip || (islaz && read_points in (:auto, true))
     filename = extract_filename(io)
     isnothing(filename) && error("Could not determine filename for LASzip")
