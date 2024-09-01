@@ -2,10 +2,11 @@
 # See https://github.com/casey/just for more information.
 set positional-arguments
 
+# package versions for recipe dependencies
 benchmarktools_version := "1.5.0"
 documenter_version := "1.4.1"
-liveserver_version := "1.3.1"
 formatter_version := "1.0.56"
+liveserver_version := "1.3.1"
 revise_version := "3.5.14"
 
 _default:
@@ -36,7 +37,7 @@ doctest:
   import Documenter, PointClouds
   Documenter.doctest(PointClouds)
 
-# Run documetation tests
+# Download LAZ sample file to cache directory
 getsample:
   #!/usr/bin/env julia
   haskey(ENV, "XDG_CACHE_HOME") || error("Set `XDG_CACHE_HOME` to run this recipe")

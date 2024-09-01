@@ -16,7 +16,7 @@ not all available for all PDRFs.
   - time at which point was recorded: [`gps_time`](@ref) *(PDRFs 1 & 3–10)*
   - information about the laser pulse return: [`intensity`](@ref), [`return_number`](@ref), [`return_count`](@ref), [`waveform_packet`](@ref) *(PDRFs 4/5/9/10 only)*
   - scanner/flight path information: [`scan_angle`](@ref) *(higher resolution for PDRFs 6–10)*, [`is_left_to_right`](@ref), [`is_right_to_left`](@ref), [`is_edge_of_line`](@ref), [`scanner_channel`](@ref) *(PDRFs 6–10 only)*, [`source_id`](@ref)
-  - point record classification: [`classification`](@ref), [`is_key_point`](@ref), [`is_overlap`](#) *(all PDRFs, based on classification for PDRF 0–5)*, [`is_synthetic`](@ref), [`is_withheld`](@ref)
+  - point record classification: [`classification`](@ref), [`is_key_point`](@ref), [`is_overlap`](@ref) *(all PDRFs, based on classification for PDRF 0–5)*, [`is_synthetic`](@ref), [`is_withheld`](@ref)
   - custom attributes: [`user_data`](@ref), [`extra_bytes`](@ref)
 """
 abstract type PointRecord{F,N} end
@@ -213,8 +213,6 @@ end
 
 Obtain the “raw” x-, y-, and z-coordinate of a point record as a tuple of
 32-bit integers. Pass `Int` as the first argument for 64-bit integers.
-
-See also: `getscaling`
 """
 coordinates(::Type{T}, pt) where {T<:Integer} = convert.(T, pt.coords)
 
@@ -558,7 +556,7 @@ function Base.show(io::Base.IO, pt::PointRecord{F,N}) where {F,N}
   gps = gps_time(pt)
   ismissing(gps) || print(io, ", GPS time = ", gps)
   color = color_channels(pt)
-  ismissing(color) || print(io, ", color = ", color)
+  ismissing(color) || print(io, ", color = ", Int.(color))
   waveform = waveform_packet(pt)
   ismissing(waveform) || print(io, ", waveform packet = ", waveform)
 
@@ -731,15 +729,6 @@ function las_points(::Type{T}, attrs; coord_scale, coord_offset) where {T<:Point
       end
     end
     points[ind] = T(fields...)
-    #=
-    intensity = zero(UInt16)
-    attributes = (zero(UInt8), zero(UInt8), zero(UInt8))
-    user_data = zero(UInt8)
-    scan_angle = zero(Int16)
-    source_id = zero(UInt16)
-    gps_time = zero(Float64)
-    extra_bytes = ()
-    points[ind] = T(int_coords, intensity, attributes, user_data, scan_angle, source_id, gps_time, extra_bytes)=#
   end
 
   points

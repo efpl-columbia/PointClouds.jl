@@ -1045,7 +1045,7 @@ end
 Create a function that takes a `PointRecord` as its argument and returns the
 rescaled coordinates of that point; in the coordinate reference system (CRS) of `las` unless a different `crs` is specified.
 
-See also: `getscaling`, `getcrs`
+See also: `LAS`, `getcrs`
 """
 function coordinates(las::LAS; crs = nothing)
   tf = gettransform(las, crs)

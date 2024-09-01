@@ -1,6 +1,6 @@
 module IO
 
-export LAS, getscaling, update, update!, PointRecord
+export LAS, update, update!, PointRecord
 
 # accessors for point fields
 export classification,
