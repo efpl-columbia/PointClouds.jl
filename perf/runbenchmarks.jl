@@ -35,10 +35,13 @@ function load_samples(samples; verbose)
     bmks["load"] = @benchmarkable LAS($sample)
     bmks["readpts"] = @benchmarkable LAS($sample; read_points = true)
     bmks["collect"] = @benchmarkable collect($las)
-    bmks["coords"] = @benchmarkable coordinates($las, 1:$npts)
-    bmks["intensity"] = @benchmarkable intensity($las, :)
+    bmks["coords"] = @benchmarkable coordinates($las)
+    bmks["intensity"] = @benchmarkable intensity($las)
     bmks["random"] = @benchmarkable getindex($las, rand(1:$npts))
     bmks["iterate"] = @benchmarkable (for pt in $las; pt; end)
+    if endswith(sample, "las")
+      bmks["stream"] = @benchmarkable LAS($sample; read_points = :stream)
+    end
     suite[basename(sample)] = bmks
   end
   verbose && println(suite)
