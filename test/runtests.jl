@@ -1,4 +1,4 @@
-using Test, PointClouds
+using Test, AllocCheck, PointClouds
 using Dates: Dates
 
 const VERBOSE = "-v" in ARGS || "--verbose" in ARGS

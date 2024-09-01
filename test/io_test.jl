@@ -158,11 +158,33 @@ test_attributes() = @testset "PointRecord{$pdrf,$nextra}" for pdrf in 1:10, next
   end
 end
 
+function test_read_allocs()
+  noallocs(f, args) = isempty(check_allocs(f, args))
+
+  # check functions handling single point
+  P = PointClouds.IO.PointRecord3{2}
+  @test noallocs(coordinates, (Type{Integer}, P,))
+  @test noallocs(intensity, (P,))
+
+  # check functions handling memory-mapped & laszip points
+  Pm = PointClouds.IO.MappedPoints{P}
+  Pz = PointClouds.IO.LASzipReader{P}
+  for Ps in (Pm, Pz)
+    L = LAS{Ps,Vector{PointClouds.IO.VariableLengthRecord}}
+    @test isempty(check_allocs(getindex, (L, Int)))
+    @test isempty(check_allocs(coordinates, (L, Int)))
+    @test isempty(check_allocs(intensity, (L, Int)))
+    iter(las) = (for pt in las; pt; end)
+    @test isempty(check_allocs(iter, (L,)))
+  end
+end
+
 function run_io_tests(; verbose)
   test_guid()
   test_las_create()
   test_las_update()
   @testset "Access point attributes" redirect_stdio(test_attributes; stderr = devnull)
+  test_read_allocs()
   check_pdal_samples(; verbose = verbose)
 end
 
