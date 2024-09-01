@@ -183,6 +183,20 @@ function MappedPoints(io::Base.IO, ::Type{P}, count) where {P}
   MappedPoints(P, data)
 end
 
+# only read required attributes from mapped data instead of loading the whole point
+function getattrs(attrs::Tuple, pts::MappedPoints{P}, ind::Integer) where {P}
+  @boundscheck checkbounds(pts, ind)
+  offset = (ind - 1) * point_record_bytes(P)
+  map(attr -> (@inbounds readattr(P, attr, pts.data, offset)), attrs)
+end
+
+# when reading multiple points, only compute the offsets once
+function getattrs(attrs::Tuple, pts::MappedPoints{P}, inds::AbstractRange) where {P}
+  @boundscheck checkbounds(pts, inds)
+  offsets = (inds .- 1) .* point_record_bytes(P)
+  (map(attr -> (@inbounds readattr(P, attr, pts.data, offset)), attrs) for offset in offsets)
+end
+
 # iteration/indexing interface methods for memory-mapped point data
 Base.size(pts::MappedPoints) = (div(length(pts.data), point_record_bytes(eltype(pts))),)
 function Base.iterate(pts::MappedPoints, ind = 1)
@@ -191,10 +205,8 @@ end
 Base.isdone(pts::MappedPoints, ind = 1) = ind > length(pts)
 Base.getindex(pts::MappedPoints, inds::BitVector) = MaskedPoints(pts, inds)
 Base.getindex(pts::MappedPoints, inds::OrdinalRange) = IndexedPoints(pts, inds)
-function Base.getindex(pts::MappedPoints, ind::Integer)
-  nb = point_record_bytes(eltype(pts))
-  io = seek(IOBuffer(pts.data), (ind - 1) * nb)
-  read(io, eltype(pts))
+function Base.getindex(pts::MappedPoints{P}, ind::Integer) where P
+  P(getattrs(Val.(fieldnames(P)), pts, ind)...)
 end
 Base.filter(f::Function, pts::MappedPoints) = filter!(f, MaskedPoints(pts))
 
