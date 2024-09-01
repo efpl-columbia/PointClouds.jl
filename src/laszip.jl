@@ -81,9 +81,9 @@ end
 
 struct LASzipReader{T} <: AbstractVector{T}
   file::String
-  reader::Ref{Ptr{Cvoid}}
+  reader::Base.RefValue{Ptr{Cvoid}}
   current_point::Vector{LASzipPoint}
-  current_index::Ref{Int}
+  current_index::Base.RefValue{Int}
   count::Int
 end
 
