@@ -87,7 +87,7 @@ end
 # iteration interface: forward to points field
 Base.length(las::LAS) = length(las.points)
 Base.iterate(las::LAS, args...) = iterate(las.points, args...)
-Base.eltype(las::LAS) = abstract_record_type(eltype(las.points))
+Base.eltype(las::LAS) = eltype(las.points)
 Base.isdone(las::LAS, args...) = isdone(las.points, args...)
 
 # read-only indexing interface: forward to points field

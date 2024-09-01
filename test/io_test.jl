@@ -37,7 +37,7 @@ function test_las_create()
   @test LAS() isa LAS
   @test_throws ErrorException read("io_test.jl", LAS)
   # point record data format
-  @test eltype(LAS(PointRecord{1})) == PointRecord{1}
+  @test eltype(LAS(PointRecord{1})) <: PointRecord{1}
   @test isconcretetype(eltype(LAS(PointRecord{1}).points))
   @test allequal(eltype.((LAS(), LAS(PointRecord{6}), LAS(PointRecord{6,0}))))
   @test eltype(LAS(PointRecord{6})) != eltype(LAS(PointRecord{6,1}))
