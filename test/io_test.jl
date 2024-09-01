@@ -92,7 +92,7 @@ function test_las_create()
   @test LAS(tmp)[2:3] == LAS(tmp)[(1:3).>1] == las[2:3]
 
   # filtering of LAS points
-  coords = coordinates(las)
+  coords = coordinates(Function, las)
   @test las[1:3] == filter(pt -> coords(pt)[1] <= 3, las)
   @test las[2:4] == filter(las; x = (2, 4)) == filter(las; lon = (2, 4))
   @test las[2:4] == filter(las; y = (102, 104)) == filter(las; lat = (102, 104))
@@ -122,10 +122,47 @@ function test_las_update()
   @test return_number.(update(las, (return_number = new_returns,))) == new_returns
 end
 
+function hasattr(pdrf, attr)
+  attr == color_channels && return pdrf in (2, 3, 5, 7, 8, 10)
+  attr == gps_time && return !(pdrf in (0, 2))
+  attr == waveform_packet && return pdrf in (4, 5, 9, 10)
+  attr == scanner_channel && return pdrf >= 6
+  true
+end
+
+test_attributes() = @testset "PointRecord{$pdrf,$nextra}" for pdrf in 1:10, nextra in (0, 2)
+  las = LAS(PointRecord{pdrf, nextra})
+  P = eltype(las)
+  append!(las.points, reinterpret(P, rand(UInt8, sizeof(P) * 10)))
+  @testset "$attr" for attr in (classification, color_channels, coordinates,
+    extra_bytes, gps_time, intensity, is_edge_of_line, is_key_point,
+    is_left_to_right, is_overlap, is_right_to_left, is_synthetic, is_withheld,
+    return_count, return_number, scan_angle, scanner_channel, source_id,
+    user_data, waveform_packet)
+    ref = attr(las)
+    if hasattr(pdrf, attr)
+      @test all(attr(las, :) .=== ref)
+      @test all(attr(las, 1:10) .=== ref)
+      @test all(attr(las, 2:9) .=== ref[2:9])
+      @test attr(las, 5) === ref[5]
+      attr == coordinates && (attr = attr(Function, las))
+      @test attr(las[5]) === ref[5]
+    else
+      @test ismissing.(ref) == trues(10)
+      @test ismissing.(attr(las, :)) == trues(10)
+      @test ismissing.(attr(las, 1:10)) == trues(10)
+      @test ismissing.(attr(las, 2:9)) == trues(8)
+      @test ismissing(attr(las, 5))
+      @test ismissing(attr(las[5]))
+    end
+  end
+end
+
 function run_io_tests(; verbose)
   test_guid()
   test_las_create()
   test_las_update()
+  @testset "Access point attributes" redirect_stdio(test_attributes; stderr = devnull)
   check_pdal_samples(; verbose = verbose)
 end
 

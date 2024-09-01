@@ -5,11 +5,8 @@ export LAS, update, update!, PointRecord
 # accessors for point fields
 export classification,
   color_channels,
-  encoded_attributes,
   extra_bytes,
   gps_time,
-  integer_coordinates,
-  integer_scan_angle,
   intensity,
   is_edge_of_line,
   is_key_point,

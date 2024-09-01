@@ -35,7 +35,7 @@ Base.filter!(las::LAS; kws...) = filter!(gen_check_extent(las; kws...), las)
 
 # generates a function that checks whether a point is within the extent
 function gen_check_extent(las; crs = nothing, tol = nothing, kws...)
-  getcoords = coordinates(las; crs = crs)
+  getcoords = coordinates(Function, las; crs = crs)
   tol = tol isa Tuple ? tol : (tol, tol, tol)
   extent = normalize_extent_kws(; kws...)
   pt -> begin

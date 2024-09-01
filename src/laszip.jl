@@ -40,10 +40,10 @@ struct LASzipPoint
   extra_bytes::Ptr{UInt8}
 end
 
-integer_coordinates(pt::LASzipPoint) = pt.coords
-intensity(::Type{UInt16}, pt::LASzipPoint) = pt.intensity
-encoded_attributes(::Type{NTuple{2,UInt8}}, pt::LASzipPoint) = pt.attributes
-function encoded_attributes(::Type{NTuple{3,UInt8}}, pt::LASzipPoint)
+readattr(P, ::Val{:coords}, pt::LASzipPoint) = pt.coords
+readattr(P, ::Val{:intensity}, pt::LASzipPoint) = pt.intensity
+function readattr(P, ::Val{:metadata}, pt::LASzipPoint)
+  fieldtype(P, :metadata) <: NTuple{2} && return pt.attributes
   a1, a2, a3 = pt.extended_attributes
   # LASzip reorders the bits of the point attribute data
   point_type = a1 & 0b00000011
@@ -55,25 +55,29 @@ function encoded_attributes(::Type{NTuple{3,UInt8}}, pt::LASzipPoint)
   # LAS order: classification, channel, scan direction, edge of flight line
   (a3, classification >> 4 | scanner_channel << 2 | direction | edge, a2)
 end
-
-integer_scan_angle(::Type{Int8}, pt::LASzipPoint) = pt.scan_angle
-integer_scan_angle(::Type{Int16}, pt::LASzipPoint) = pt.extended_scan_angle
-user_data(pt::LASzipPoint) = pt.user_data
-source_id(pt::LASzipPoint) = pt.source_id
-gps_time(pt::LASzipPoint) = pt.gps_time
-function waveform_packet(pt::LASzipPoint)
-  w1 = pt[1]
-  w2 = reinterpret(UInt64, pt[2:9])
-  w3 = reinterpret(UInt32, pt[10:13])
-  w4 = reinterpret(Float32, pt[14:17])
-  w5 = reinterpret(Float32, pt[18:21])
-  w6 = reinterpret(Float32, pt[22:25])
-  w7 = reinterpret(Float32, pt[26:29])
+function readattr(P, ::Val{:scan_angle}, pt::LASzipPoint)
+  fieldtype(P, :scan_angle) <: Int8 ? pt.scan_angle : pt.extended_scan_angle
+end
+readattr(P, ::Val{:user_data}, pt::LASzipPoint) = pt.user_data
+readattr(P, ::Val{:source_id}, pt::LASzipPoint) = pt.source_id
+readattr(P, ::Val{:gps_time}, pt::LASzipPoint) = pt.gps_time
+function readattr(P, ::Val{:waveform_packet}, pt::LASzipPoint)
+  pkg = pt.waveform_packet
+  w1 = pkg[1]
+  w2 = reinterpret(UInt64, pkg[2:9])
+  w3 = reinterpret(UInt32, pkg[10:13])
+  w4 = reinterpret(Float32, pkg[14:17])
+  w5 = reinterpret(Float32, pkg[18:21])
+  w6 = reinterpret(Float32, pkg[22:25])
+  w7 = reinterpret(Float32, pkg[26:29])
   (w1, w2, w3, w4, w5, w6, w7)
 end
-color_channels(::Type{NTuple{N,UInt16}}, pt::LASzipPoint) where {N} = pt.color_channels[1:N]
-function extra_bytes(::Type{NTuple{N,UInt8}}, pt::LASzipPoint) where {N}
-  @assert N isa Int # do not use non-standard integers as type parameter
+function readattr(P, ::Val{:color_channels}, pt::LASzipPoint)
+  count(::Type{<:NTuple{N}}) where {N} = N
+  pt.color_channels[1:count(fieldtype(P, :color_channels))]
+end
+function readattr(P, ::Val{:extra_bytes}, pt::LASzipPoint)
+  N = fieldcount(fieldtype(P, :extra_bytes))
   @assert pt.extra_bytes_count == N
   eb = reinterpret(Ptr{NTuple{N,UInt8}}, pt.extra_bytes)
   unsafe_load(eb)
@@ -145,23 +149,44 @@ function Base.iterate(laz::LASzipReader, ind::Integer = 1)
 end
 Base.isdone(laz::LASzipReader, ind::Integer = 1) = ind > laz.count
 
+
 # read-only indexing interface
-function Base.getindex(laz::LASzipReader, ind::Integer)
-  if laz.current_index[] != ind - 1
-    rval = ccall(
-      (:laszip_seek_point, laszip),
-      Cint,
-      (Ptr{Cvoid}, Clonglong),
-      laz.reader[],
-      ind - 1,
-    )
-    iszero(rval) || @error("Could not seek LASzip point ($rval)")
-    laz.current_index[] = ind - 1
-  end
-  rval = ccall((:laszip_read_point, laszip), Cint, (Ptr{Cvoid},), laz.reader[])
-  iszero(rval) || @error("Could not read LASzip point ($rval)")
-  laz.current_index[] += 1
-  convert(eltype(laz), laz.current_point[])
-end
 Base.getindex(laz::LASzipReader, inds::BitVector) = MaskedPoints(laz, inds)
 Base.getindex(laz::LASzipReader, inds::OrdinalRange) = IndexedPoints(laz, inds)
+function Base.getindex(laz::LASzipReader{P}, ind::Integer) where {P}
+  P(getattrs(Val.(fieldnames(P)), laz, ind)...)
+end
+
+function getattrs(attrs::Tuple, pts::LASzipReader{P}, ind::Integer) where {P}
+  @boundscheck checkbounds(pts, ind)
+  laz_seek!(pts, ind)
+  pt = laz_read!(pts)
+  map(attr -> readattr(P, attr, pt), attrs)
+end
+
+function getattrs(attrs::Tuple, pts::LASzipReader{P}, inds::AbstractUnitRange) where {P}
+  @boundscheck checkbounds(pts, inds)
+  laz_seek!(pts, first(inds))
+  # make sure to only call laz_read! once per point
+  ((pt = laz_read!(pts); map(attr -> readattr(P, attr, pt), attrs)) for _ in inds)
+end
+
+function laz_seek!(laz::LASzipReader, ind::Integer)
+  laz.current_index[] == ind - 1 && return
+  rval = ccall(
+    (:laszip_seek_point, laszip),
+    Cint,
+    (Ptr{Cvoid}, Clonglong),
+    laz.reader[],
+    ind - 1,
+  )
+  iszero(rval) || error("Could not seek LASzip point ($rval)")
+  laz.current_index[] = ind - 1
+end
+
+function laz_read!(laz::LASzipReader)
+  rval = ccall((:laszip_read_point, laszip), Cint, (Ptr{Cvoid},), laz.reader[])
+  iszero(rval) || error("Could not read LASzip point ($rval)")
+  laz.current_index[] += 1
+  laz.current_point[]
+end

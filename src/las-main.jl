@@ -166,6 +166,23 @@ struct MappedPoints{T<:PointRecord} <: AbstractVector{T}
   end
 end
 
+# construct MappedPoints from IOStream
+function MappedPoints(io::Base.IO, ::Type{P}, count) where {P}
+  @assert isconcretetype(P)
+  nb = point_record_bytes(P)
+  available, rem = divrem(filesize(io) - position(io), nb)
+  if available < count
+    n = count - available
+    eb = iszero(rem) ? "" : ", $rem trailing byte" * 's'^(rem > 1)
+    @error "Point data ends prematurely ($n record$('s'^(n>1)) missing$eb)"
+    count = available
+  end
+  # we cannot mmap as a Vector{pdrf_type} because such a vector can have different byte alignment
+  data = Mmap.mmap(io, Vector{UInt8}, nb * count; grow = false)
+  skip(io, nb * count) # advance IO past the mapped data
+  MappedPoints(P, data)
+end
+
 # iteration/indexing interface methods for memory-mapped point data
 Base.size(pts::MappedPoints) = (div(length(pts.data), point_record_bytes(eltype(pts))),)
 function Base.iterate(pts::MappedPoints, ind = 1)
@@ -649,40 +666,28 @@ function LAS(io::Base.IO; read_points = :auto, override_crs = nothing)
     isnothing(filename) && error("Could not determine filename for LASzip")
     r = LASzipReader(filename, pdrf_type, point_count_total)
     read_points == true ? collect(r) : r
-  elseif read_points == :auto
-    io = unwrap(io) # remove context
-    # check how many bytes are left for point data
-    pos = position(io)
-    seekend(io)
-    available, rem = divrem(position(io) - pos, pdrf_bytes)
-    seek(io, pos) # reset to start of point data
-    if available < point_count_total
-      n = point_count_total - available
-      point_count_total = available
-      @error "Point data ends prematurely ($n record$('s'^(n>1)) missing"
-    elseif available > point_count_total || !iszero(rem)
-      @error "Input longer than expected"
-    end
-    # we cannot mmap as a Vector{pdrf_type} because such a vector can have different byte alignment
-    data = Mmap.mmap(io, Vector{UInt8}, pdrf_bytes * point_count_total; grow = false)
-    MappedPoints(pdrf_type, data)
-  elseif read_points == true
+  elseif read_points == :stream
+    # TODO: automatically determine when points need to be read from stream
+    # TODO: consider using BufferedStreams for better performance
     points = Vector{pdrf_type}(undef, point_count_total)
-    for ind in 1:point_count_total
-      try
-        points[ind] = read(io, pdrf_type)
-      catch ex
-        ex isa EOFError || rethrow()
-        n = point_count_total - ind + 1
-        s = n > 1 ? "s" : ""
-        # TODO: check if discarded data can be added to error message
-        @error "Point data ends prematurely ($n record$s missing)"
-        resize!(points, ind - 1)
-        break
-      end
+    io = unwrap(io) # remove context
+    pos = position(io) # to compute number of elements, if incomplete
+    try
+      read_points!(io, points)
+    catch ex
+      ex isa EOFError || rethrow()
+      resize!(points, div(position(io) - pos, pdrf_bytes))
+      n = point_count_total - length(points)
+      # TODO: check if discarded data can be added to error message
+      @error "Point data ends prematurely ($n record$('s'^(n>1)) missing)"
     end
     eof(io) || @error "Input longer than expected"
     points
+  elseif read_points in (:auto, true)
+    pts = MappedPoints(unwrap(io), pdrf_type, point_count_total)
+    # TODO: allow for EVLR data after point data
+    eof(io) || @error "Input longer than expected"
+    read_points == true ? collect(pts) : pts
   else
     error("Invalid keyword argument `read_points = $read_points`")
   end
@@ -712,6 +717,10 @@ function LAS(io::Base.IO; read_points = :auto, override_crs = nothing)
     has_synthetic_return_numbers,
     has_well_known_text,
   )
+end
+
+read_points!(io, pts) = foreach(eachindex(pts)) do ind
+  @inbounds pts[ind] = read(io, eltype(pts))
 end
 
 function Base.write(filename::AbstractString, las::LAS; format = nothing)
@@ -964,7 +973,7 @@ function LAS(las::LAS; extent = nothing)
     return_counts = zeros(UInt64, 15)
 
     for pt in las
-      all(int_min .<= integer_coordinates(pt)[1:nd] .<= int_max) || continue
+      all(int_min .<= coordinates(Integer, pt)[1:nd] .<= int_max) || continue
       push!(points, pt)
       r = return_number(pt)
       !iszero(r) && (return_counts[r] += 1)
@@ -1019,80 +1028,43 @@ function recompute_summary(coord_scale, coord_offset, points)
 end
 
 """
-    coordinates(las::LAS, index; crs)
+    coordinates(las::LAS, [index]; crs)
 
 Obtain the x-, y-, and z-coordinate of the `index`-th point record as a tuple
 of `Float64`s. The coordinate reference system (CRS) of the `LAS` is used
 unless a different `crs` is specified. To obtain coordinates of multiple
-points, pass a range of indices or `:` as the `index` argument.
+points, pass a range of indices or `:` (default) as the `index` argument.
 
 # Keywords
 
   - `crs`: Transform the coordinates to a new coordinate reference system `crs`
     instead of the current CRS of the `LAS`.
 """
-coordinates(las::LAS, pts; kws...) = coordinates.((las,), pts; kws...)
-coordinates(las::LAS, ind::Integer; kws...) = coordinates(las, getindex(las, ind); kws...)
-
-function coordinates(las::LAS, pt::PointRecord; crs = nothing)
+function coordinates(las::LAS, args...; crs = nothing)
   tf = gettransform(las, crs)
-  tf(integer_coordinates(pt) .* las.coord_scale .+ las.coord_offset)
+  attribute(Val(:coords), las, args...) do coords
+    tf(coords .* las.coord_scale .+ las.coord_offset)
+  end
 end
 
 """
-    coordinates(las::LAS; crs)
+    coordinates(Function, las::LAS; crs)
 
 Create a function that takes a `PointRecord` as its argument and returns the
-rescaled coordinates of that point; in the coordinate reference system (CRS) of `las` unless a different `crs` is specified.
+rescaled coordinates of that point; in the coordinate reference system (CRS) of
+`las` unless a different `crs` is specified.
 
 See also: `LAS`, `getcrs`
 """
-function coordinates(las::LAS; crs = nothing)
+function coordinates(::Type{Function}, las::LAS; crs = nothing)
   tf = gettransform(las, crs)
-  pt -> tf(coordinates(las, pt))
+  pt -> tf(coordinates(Integer, pt) .* las.coord_scale .+ las.coord_offset)
 end
 
-"""
-    intensity(las::LAS, index)
-
-Obtain the pulse return intensity of `index`-th point record as a `UInt16`,
-normalized such that the dynamic range of the sensor is represented by the
-range `typemin(UInt16)` to `typemax(UInt16)`.
-
-See also: `color_channels`
-"""
-
-for op in (
-  intensity,
-  color_channels,
-  scan_angle,
-  gps_time,
-  waveform_packet,
-  source_id,
-  user_data,
-  extra_bytes,
-  return_number,
-  return_count,
-  classification,
-  scanner_channel,
-  is_synthetic,
-  is_key_point,
-  is_withheld,
-  is_overlap,
-  is_left_to_right,
-  is_right_to_left,
-  is_edge_of_line,
-)
-  op = nameof(op)
-  eval(quote
-    $op(las::LAS, ind::Integer) = $op(las[ind])
-    $op(las::LAS, inds) = [$op(las, ind) for ind in inds]
-    $op(las::LAS, ::Colon) = [$op(pt) for pt in las]
-    $op(::Type{T}, las::LAS, ind::Integer) where {T} = $op(T, las[ind])
-    $op(::Type{T}, las::LAS, inds) where {T} = [$op(T, las[ind]) for ind in inds]
-    $op(::Type{T}, las::LAS, ::Colon) where {T} = [$op(T, pt) for pt in las]
-  end)
-end
+# for all other attributes, no information from the LAS is needed, so they can
+# simply be forwarded to the `attribute` function of the points vector
+attribute(f, attr, las::LAS, ind::Integer)  = attribute(f, attr, las.points, ind)
+attribute(f, attr, las::LAS, args...)  = attribute(f, attr, las.points, args...)
 
 gettransform(las::LAS, ::Nothing) = identity
 function gettransform(las::LAS, target)

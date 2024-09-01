@@ -40,7 +40,7 @@ struct PointRecord0{N} <: PointRecord{0,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
-  attributes::NTuple{2,UInt8}
+  metadata::NTuple{2,UInt8}
   scan_angle::Int8
   user_data::UInt8
   source_id::UInt16
@@ -52,7 +52,7 @@ struct PointRecord1{N} <: PointRecord{1,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
-  attributes::NTuple{2,UInt8}
+  metadata::NTuple{2,UInt8}
   scan_angle::Int8
   user_data::UInt8
   source_id::UInt16
@@ -66,7 +66,7 @@ struct PointRecord2{N} <: PointRecord{2,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
-  attributes::NTuple{2,UInt8}
+  metadata::NTuple{2,UInt8}
   scan_angle::Int8
   user_data::UInt8
   source_id::UInt16
@@ -80,7 +80,7 @@ struct PointRecord3{N} <: PointRecord{3,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
-  attributes::NTuple{2,UInt8}
+  metadata::NTuple{2,UInt8}
   scan_angle::Int8
   user_data::UInt8
   source_id::UInt16
@@ -95,7 +95,7 @@ struct PointRecord4{N} <: PointRecord{4,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
-  attributes::NTuple{2,UInt8}
+  metadata::NTuple{2,UInt8}
   scan_angle::Int8
   user_data::UInt8
   source_id::UInt16
@@ -110,7 +110,7 @@ struct PointRecord5{N} <: PointRecord{5,N}
   # core items (legacy formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
-  attributes::NTuple{2,UInt8}
+  metadata::NTuple{2,UInt8}
   scan_angle::Int8
   user_data::UInt8
   source_id::UInt16
@@ -126,7 +126,7 @@ struct PointRecord6{N} <: PointRecord{6,N}
   # core items (new formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
-  attributes::NTuple{3,UInt8}
+  metadata::NTuple{3,UInt8}
   user_data::UInt8
   scan_angle::Int16
   source_id::UInt16
@@ -139,7 +139,7 @@ struct PointRecord7{N} <: PointRecord{7,N}
   # core items (new formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
-  attributes::NTuple{3,UInt8}
+  metadata::NTuple{3,UInt8}
   user_data::UInt8
   scan_angle::Int16
   source_id::UInt16
@@ -154,7 +154,7 @@ struct PointRecord8{N} <: PointRecord{8,N}
   # core items (new formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
-  attributes::NTuple{3,UInt8}
+  metadata::NTuple{3,UInt8}
   user_data::UInt8
   scan_angle::Int16
   source_id::UInt16
@@ -169,7 +169,7 @@ struct PointRecord9{N} <: PointRecord{9,N}
   # core items (new formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
-  attributes::NTuple{3,UInt8}
+  metadata::NTuple{3,UInt8}
   user_data::UInt8
   scan_angle::Int16
   source_id::UInt16
@@ -184,7 +184,7 @@ struct PointRecord10{N} <: PointRecord{10,N}
   # core items (new formats)
   coords::NTuple{3,Int32}
   intensity::UInt16
-  attributes::NTuple{3,UInt8}
+  metadata::NTuple{3,UInt8}
   user_data::UInt8
   scan_angle::Int16
   source_id::UInt16
@@ -196,25 +196,139 @@ struct PointRecord10{N} <: PointRecord{10,N}
   extra_bytes::NTuple{N,UInt8}
 end
 
-# simple accessors for fields that always exist
-# note: intensity is optional, but we still return 0 and not missing for type stability
-integer_coordinates(pt) = pt.coords # TODO: remove
-integer_scan_angle(pt) = scan_angle(Integer, pt) # TODO: remove
-integer_scan_angle(type, pt) = scan_angle(type, pt) # TODO: remove
+"""
+    readattr(::Type{<:PointRecord}, attr::Val, args...)
 
-encoded_attributes(pt) = pt.attributes
-function encoded_attributes(::Type{T}, pt) where {T}
-  @assert typeof(pt.attributes) == T
-  pt.attributes
+Read a point attribute from the data in `args`. This is an internal function
+that is used by several point sources to provide access to individual
+attributes of a single point.
+"""
+function readattr end
+
+"""
+    readattr(T, attr, pt::PointRecord)
+
+Read an attribute `attr` from an existing point record `pt` of type `T`.
+"""
+readattr(::Type{P}, ::Val{F}, pt::P) where {P<:PointRecord,F} = getfield(pt, F)
+
+"""
+    readattr(T, attr, data::AbstractVector{UInt8}, offset = 0)
+
+Read an attribute `attr` for a point record of type `T` from raw LAS `data`, at
+an (optional) `offset`.
+"""
+function readattr(::Type{P}, ::Val{F}, data::AbstractVector{UInt8}, offset::Integer = 0) where {P<:PointRecord,F}
+  T = fieldtype(P, F)
+  T <: Tuple{} && return () # reinterpret does not work for empty tuples
+  # careful when making changes: sum should be computed at compile time!
+  offset += sum(ntuple(ind -> sizeof(fieldtype(P, ind)), Base.fieldindex(P, F) - 1), init = 0)
+  inds = (1:sizeof(T)) .+ offset
+  @boundscheck checkbounds(data, inds)
+  @inbounds reinterpret(T, view(data, inds))[]
+end
+
+# reading & writing to/from IO
+
+"""
+    readattr(T, attr, io::IO)
+
+Read an attribute `attr` for a point record of type `T` from `io`.
+"""
+function readattr(::Type{P}, ::Val{F}, io::Base.IO) where {P<:PointRecord,F}
+  T = fieldtype(P, F)
+  T <: Tuple ? map(Ti -> Base.read(io, Ti), fieldtypes(T)) : Base.read(io, T)
+end
+
+function Base.read(io::Base.IO, ::Type{P}) where {P<:PointRecord}
+  P(map(attr -> readattr(P, attr, io), Val.(fieldnames(P)))...)
+end
+
+function Base.write(io::Base.IO, pt::P) where {P<:PointRecord}
+  fields = ntuple(ind -> getfield(pt, ind), fieldcount(P))
+  foreach(val -> write.((io,), val), fields) # broadcast for tuples
+end
+
+
+"""
+    getattrs(attrs::Tuple, args...)
+
+Obtain the attributes given by `attrs` as a `Tuple` of `Val`s with their field
+names from the point data given in `args`.
+
+This internal function is meant to be extended for different point data sources
+in order to provide efficient access to a subset of the attributes in a more
+efficient way than the default implementation for `AbstractVector`s, which
+relies on `getindex(args...)`.
+"""
+function getattrs end
+
+"""
+    getattrs(attrs::Tuple, p::PointRecord)
+    getattrs(attrs::Tuple, points::AbstractVector{<:PointRecord}, ind::Integer)
+
+Obtain a tuple of attributes of a single point record, either given directly as
+`p` or read from `points` at index `ind`.
+"""
+function getattrs(attrs::Tuple, pt::P) where {P<:PointRecord}
+  map(attr -> readattr(P, attr, pt), attrs)
+end
+Base.@propagate_inbounds getattrs(attrs::Tuple, pts::AbstractVector{P}, ind::Integer) where {P<:PointRecord} = getattrs(attrs, pts[ind])
+
+"""
+    getattrs(attrs::Tuple, points::AbstractVector{<:PointRecord}, [inds])
+
+Obtain selected attributes of a multiple or all point records in the collection
+`points`. This function returns a generator that produces a tuple with the
+attribute values for each point. The `inds` can be an `AbstractRange` or `:`
+for all points, which is the default.
+"""
+function getattrs(attrs::Tuple, pts::AbstractVector{P}, inds::AbstractRange) where {P<:PointRecord}
+  @boundscheck checkbounds(pts, inds)
+  ((@inbounds getattrs(attrs, pts, ind)) for ind in inds)
+end
+getattrs(attrs::Tuple, pts::AbstractVector{<:PointRecord}, ::Colon) = @inbounds getattrs(attrs, pts, axes(pts, 1))
+
+
+"""
+    attribute([f], attr::Val, p::PointRecord)
+    attribute([f], attr::Val, points, [inds])
+
+Read the point attribute `attr` from a single point `p` or from a collection
+`points`, where `inds` can be a single index, a range of indices, or `:` for
+all points, which is the default. This is an internal function that unifies the
+functionality of different accessor function for point attributes, such as
+`coordinates` and `intensity`. The function `f` is applied to the attribute for
+each point. If the point record type does not have the requested attribute,
+`missing` is returned instead.
+"""
+function attribute end
+attribute(::Val{F}, args...) where {F} = attribute(identity, Val(F), args...)
+function attribute(f, ::Val{F}, pt::P) where {P<:PointRecord,F}
+  f(hasfield(P, F) ? getattrs((Val(F),), pt)[1] : missing)
+end
+function attribute(f, ::Val{F}, pts::AbstractVector{P}, ind::Integer) where {P<:PointRecord,F}
+  f(hasfield(P, F) ? getattrs((Val(F),), pts, ind)[1] : missing)
+end
+function attribute(f, ::Val{F}, pts::AbstractVector{P}, inds = :) where {P<:PointRecord,F}
+  if hasfield(P, F)
+    map(as -> f(as[1]), getattrs((Val(F),), pts, inds))
+  else
+    Vector{Missing}(undef, length(inds isa Colon ? pts : inds))
+  end
 end
 
 """
     coordinates(Integer, p::PointRecord)
+    coordinates(Integer, points, inds)
 
-Obtain the “raw” x-, y-, and z-coordinate of a point record as a tuple of
-32-bit integers. Pass `Int` as the first argument for 64-bit integers.
+Obtain the “raw” x-, y-, and z-coordinate of one or multiple point records as a
+tuple of 32-bit integers. The meaning of these coordinates depends on a scaling
+and a coordinate reference system that are external to the point record. The
+first argument can also be used to specify a different integer type.
 """
-coordinates(::Type{T}, pt) where {T<:Integer} = convert.(T, pt.coords)
+coordinates(::Type{T}, src...) where {T<:Integer} =
+  attribute(a -> convert.(T, a), Val(:coords), src...)
 
 """
     intensity(p::PointRecord)
@@ -224,7 +338,7 @@ range of the sensor is represented by the range from 0 to 1.
 
 See also: `color_channels`
 """
-intensity(pt) = intensity(UInt16, pt) / typemax(UInt16)
+intensity(src...) = attribute(a -> a / typemax(UInt16), Val(:intensity), src...)
 
 """
     intensity(Integer, p::PointRecord)
@@ -234,8 +348,8 @@ integer type is passed as the first argument. Values are normalized such that
 the dynamic range of the sensor is corresponds to the range from 0 to
 `typemax(UInt16)`.
 """
-intensity(::Type{T}, pt) where {T<:Integer} = convert(T, intensity(UInt16, pt))
-intensity(::Type{UInt16}, pt) = pt.intensity
+intensity(::Type{T}, src...) where {T<:Integer} = attribute(a -> convert(T, a), Val(:intensity), src...)
+# note: intensity is optional, but we still return 0 and not missing for type stability
 
 """
     color_channels(p::PointRecord)
@@ -247,11 +361,7 @@ near infrared channel. Values should be normalized to cover the range
 `typemin(UInt16)` to `typemax(UInt16)`. For other PDRFs that do not include
 color information `missing` is returned.
 """
-color_channels(pt) = hasfield(typeof(pt), :color_channels) ? pt.color_channels : missing
-function color_channels(::Type{T}, pt) where {T}
-  @assert typeof(pt.color_channels) == T
-  pt.color_channels
-end
+color_channels(src...) = attribute(Val(:color_channels), src...)
 
 """
     scan_angle(p::PointRecord)
@@ -260,14 +370,17 @@ Obtain the angle (as a `Float64`) of the laser beam that scanned the point `p`. 
 
 See also: [`is_edge_of_line`](@ref), [`is_left_to_right`](@ref), [`is_right_to_left`](@ref)
 """
-function scan_angle(pt::PointRecord)
-  -30_000 <= pt.scan_angle <= 30_000 ||
+scan_angle(src...) = attribute(normalize_scan_angle, Val(:scan_angle), src...)
+
+function normalize_scan_angle(angle::Int16)
+  -30_000 <= angle <= 30_000 ||
     @error "Scan angle outside the valid range of −180° to +180°"
-  pt.scan_angle * 0.006
+  angle * 0.006
 end
-function scan_angle(pt::LegacyPointRecord)
-  -90 <= pt.scan_angle <= 90 || @error "Scan angle outside the valid range of −90° to +90°"
-  pt.scan_angle * 1.0
+
+function normalize_scan_angle(angle::Int8)
+  -90 <= angle <= 90 || @error "Scan angle outside the valid range of −90° to +90°"
+  angle * 1.0
 end
 
 """
@@ -277,7 +390,7 @@ Obtain the “raw” scan angle of a point record as an `Int8` or `Int16` depend
 on the point data record format, unless a specific integer type is passed as
 the first argument.
 """
-scan_angle(::Type{T}, pt) where {T<:Integer} = convert(T, pt.scan_angle)
+scan_angle(::Type{T}, src...) where {T<:Integer} = attribute(a -> convert(T, a), Val(:scan_angle), src...)
 
 """
     gps_time(p::PointRecord)
@@ -287,7 +400,7 @@ if the point record data format does not include a GPS time.
 
 Refer to the `has_adjusted_gps_time` field of [`LAS`](@ref) for the interpretation of the time value.
 """
-gps_time(pt) = hasfield(typeof(pt), :gps_time) ? pt.gps_time : missing
+gps_time(src...) = attribute(Val(:gps_time), src...)
 
 """
     waveform_packet(p::PointRecord)
@@ -296,15 +409,17 @@ Obtain the raw waveform packet of a point record, or `missing` if the point
 record data format does not include waveform packets. Note that PointClouds.jl
 currently has very limited functionality for handling waveform data.
 """
-waveform_packet(pt) = hasfield(typeof(pt), :waveform_packet) ? pt.waveform_packet : missing
+waveform_packet(src...) = attribute(Val(:waveform_packet), src...)
 
 """
-    source_id(p::PointRecord)
+    source_id([T], p::PointRecord)
 
 Obtain the source ID of a point as a `UInt16`. This may be used to group points
 that were recorded in a uniform manner, e.g. during the same flight line.
 """
-source_id(pt) = pt.source_id
+source_id(::Type{T}, src...) where {T<:Integer} =
+  attribute(a -> convert(T, a), Val(:source_id), src...)
+source_id(src...) = source_id(Int, src...)
 
 """
     user_data(p::PointRecord)
@@ -314,7 +429,7 @@ in all PDRFs but does not have any standardized meaning.
 
 See also: [`extra_bytes`](@ref)
 """
-user_data(pt) = pt.user_data
+user_data(src...) = attribute(Val(:user_data), src...)
 
 """
     extra_bytes(p::PointRecord)
@@ -324,13 +439,10 @@ of these bytes may be described with a variable-length record.
 
 See also: [`user_data`](@ref)
 """
-extra_bytes(pt) = pt.extra_bytes
-extra_bytes(::Type{T}, pt) where {T} = (@assert typeof(pt.extra_bytes) == T; pt.extra_bytes)
+extra_bytes(src...) = attribute(Val(:extra_bytes), src...)
 
-# decode attribute bits for newer formats
-# TODO: decide whether classification(pt) == 12 should also be treated as overlap
 """
-    return_number(p::PointRecord)
+    return_number([T], p::PointRecord)
 
 Obtain which return of the laser pulse produced the point data record, as a
 `UInt8`. Value between 1 and 15 for the PDRFs 6–10, and between 1 and 5 for the
@@ -338,10 +450,12 @@ legacy PDRFs 0–5.
 
 See also: [`return_count`](@ref)
 """
-return_number(pt::PointRecord) = pt.attributes[1] & 0b00001111 # bits 0–3
+return_number(::Type{T}, src...) where {T<:Integer} =
+  attribute(data -> convert(T, meta_rnumber(data)), Val(:metadata), src...)
+return_number(src...) = return_number(Int, src...)
 
 """
-    return_count(p::PointRecord)
+    return_count([T], p::PointRecord)
 
 Obtain the total number of returns produced by the laser pulse, as a `UInt8`.
 Value between 1 and 15 for the PDRFs 6–10, and between 1 and 5 for the legacy
@@ -349,7 +463,9 @@ PDRFs 0–5.
 
 See also: [`return_number`](@ref)
 """
-return_count(pt::PointRecord) = (pt.attributes[1] & 0b11110000) >> 4 # bits 4–7
+return_count(::Type{T}, src...) where {T<:Integer} =
+  attribute(data -> convert(T, meta_rcount(data)), Val(:metadata), src...)
+return_count(src...) = return_count(Int, src...)
 
 """
     is_synthetic(p::PointRecord)
@@ -359,7 +475,7 @@ photogrammetry) rather than direct measurement with a laser pulse.
 
 See also: [`classification`](@ref), [`is_key_point`](@ref), [`is_overlap`](@ref), [`is_withheld`](@ref)
 """
-is_synthetic(pt::PointRecord) = !iszero(pt.attributes[2] & 0b00000001) # bit 0
+is_synthetic(src...) = attribute(meta_synthetic, Val(:metadata), src...)
 
 """
     is_key_point(p::PointRecord)
@@ -369,7 +485,7 @@ when reducing the point density.
 
 See also: [`classification`](@ref), [`is_overlap`](@ref), [`is_synthetic`](@ref), [`is_withheld`](@ref)
 """
-is_key_point(pt::PointRecord) = !iszero(pt.attributes[2] & 0b00000010) # bit 1
+is_key_point(src...) = attribute(meta_keypt, Val(:metadata), src...)
 
 """
     is_withheld(p::PointRecord)
@@ -379,7 +495,7 @@ in further processing.
 
 See also: [`classification`](@ref), [`is_key_point`](@ref), [`is_overlap`](@ref), [`is_synthetic`](@ref)
 """
-is_withheld(pt::PointRecord) = !iszero(pt.attributes[2] & 0b00000100) # bit 2
+is_withheld(src...) = attribute(meta_withheld, Val(:metadata), src...)
 
 """
     is_overlap(p::PointRecord)
@@ -388,17 +504,20 @@ Check whether the point is marked as *overlap*, e.g. of two flight paths. This
 is recorded as a classification (class 12) or as a separate flag (PDRFs 6–10
 only) to allow for further classification of overlap points.
 """
-is_overlap(pt::PointRecord) =
-  classification(pt) == 12 || !iszero(pt.attributes[2] & 0b00001000) # bit 3
+is_overlap(src...) = attribute(meta_overlap, Val(:metadata), src...)
 
 """
-    scanner_channel(p::PointRecord)
+    scanner_channel([T], p::PointRecord)
 
 Obtain the channel/scanner head of a multi-channel system, as a UInt8 between 0
 and 3. This is only supported for the PDRFs 6–10 and returns `missing` for the
 legacy PDRFs 0–5.
 """
-scanner_channel(pt::PointRecord) = (pt.attributes[2] & 0b00110000) >> 4 # bits 4–5
+scanner_channel(::Type{T}, src...) where {T<:Integer} = attribute(Val(:metadata), src...) do a
+  c = meta_channel(a)
+  ismissing(c) ? c : convert(T, c)
+end
+scanner_channel(src...) = scanner_channel(Int, src...)
 
 """
     is_left_to_right(p::PointRecord)
@@ -408,7 +527,7 @@ in-track direction (increasing scan angle) when the point was recorded.
 
 See also: [`is_right_to_left`](@ref), [`is_edge_of_line`](@ref), [`scan_angle`](@ref)
 """
-is_left_to_right(pt::PointRecord) = !iszero(pt.attributes[2] & 0b01000000) # bit 6
+is_left_to_right(src...) = attribute(meta_ltr, Val(:metadata), src...)
 
 """
     is_right_to_left(p::PointRecord)
@@ -418,7 +537,7 @@ in-track direction (decreasing scan angle) when the point was recorded.
 
 See also: [`is_left_to_right`](@ref), [`is_edge_of_line`](@ref), [`scan_angle`](@ref)
 """
-is_right_to_left(pt::PointRecord) = !is_left_to_right(pt)
+is_right_to_left(src...) = attribute(!meta_ltr, Val(:metadata), src...)
 
 """
     is_edge_of_line(p::PointRecord)
@@ -427,7 +546,7 @@ Check whether the point was recorded at the edge of a scan line.
 
 See also: [`is_left_to_right`](@ref), [`is_right_to_left`](@ref), [`scan_angle`](@ref)
 """
-is_edge_of_line(pt::PointRecord) = !iszero(pt.attributes[2] & 0b10000000) # bit 7
+is_edge_of_line(src...) = attribute(meta_edge, Val(:metadata), src...)
 
 """
     classification([T], p::PointRecord)
@@ -451,71 +570,33 @@ meanings for the classes 0–9, with additional definitions for model key points
 
 See also: [`is_key_point`](@ref), [`is_overlap`](@ref), [`is_synthetic`](@ref), [`is_withheld`](@ref)
 """
-classification(::Type{T}, pt::PointRecord) where {T<:Integer} = convert(T, pt.attributes[3]) # bits 0–7
-classification(pt::PointRecord) = classification(UInt8, pt)
+classification(::Type{T}, src...) where {T<:Integer} =
+  attribute(a -> convert(T, meta_class(a)), Val(:metadata), src...)
+classification(src...) = classification(Int, src...)
 
-# decode attribute bits for legacy formats
-return_number(pt::LegacyPointRecord) = pt.attributes[1] & 0b00000111 # bits 0–2
-return_count(pt::LegacyPointRecord) = (pt.attributes[1] & 0b00111000) >> 3 # bits 3–5
-is_left_to_right(pt::LegacyPointRecord) = !iszero(pt.attributes[1] & 0b01000000) # bit 6
-is_right_to_left(pt::LegacyPointRecord) = !is_left_to_right(pt)
-is_edge_of_line(pt::LegacyPointRecord) = !iszero(pt.attributes[1] & 0b10000000) # bit 7
-function classification(::Type{T}, pt::LegacyPointRecord) where {T<:Integer}
-  convert(T, pt.attributes[2] & 0b00011111) # bits 0–4
-end
-is_synthetic(pt::LegacyPointRecord) = !iszero(pt.attributes[2] & 0b00100000) # bit 5
-is_key_point(pt::LegacyPointRecord) = !iszero(pt.attributes[2] & 0b01000000) # bit 6
-is_withheld(pt::LegacyPointRecord) = !iszero(pt.attributes[2] & 0b10000000) # bit 7
-is_overlap(pt::LegacyPointRecord) = classification(pt) == 12
-scanner_channel(::LegacyPointRecord) = missing
+# decode metadata bits for newer formats
+meta_rnumber(data::NTuple{3}) = data[1] & 0b00001111 # bits 0–3
+meta_rcount(data::NTuple{3}) = (data[1] & 0b11110000) >> 4 # bits 4–7
+meta_synthetic(data::NTuple{3}) = !iszero(data[2] & 0b00000001) # bit 0
+meta_keypt(data::NTuple{3}) = !iszero(data[2] & 0b00000010) # bit 1
+meta_withheld(data::NTuple{3}) = !iszero(data[2] & 0b00000100) # bit 2
+meta_overlap(data::NTuple{3}) = !iszero(data[2] & 0b00001000) || meta_class(data) == 12 # bit 3
+meta_channel(data::NTuple{3}) = (data[2] & 0b00110000) >> 4 # bits 4–5
+meta_ltr(data::NTuple{3}) = !iszero(data[2] & 0b01000000) # bit 6
+meta_edge(data::NTuple{3}) = !iszero(data[2] & 0b10000000) # bit 7
+meta_class(data::NTuple{3}) = data[3] # bits 0–7
 
-core_fields(pt) = core_fields(typeof(pt), pt)
-function core_fields(::Type{<:LegacyPointRecord}, pt)
-  (
-    integer_coordinates(pt),
-    intensity(Integer, pt),
-    encoded_attributes(NTuple{2,UInt8}, pt),
-    integer_scan_angle(Int8, pt),
-    user_data(pt),
-    source_id(pt),
-  )
-end
-function core_fields(::Type{<:PointRecord}, pt)
-  (
-    integer_coordinates(pt),
-    intensity(Integer, pt),
-    encoded_attributes(NTuple{3,UInt8}, pt),
-    user_data(pt),
-    integer_scan_angle(Int16, pt),
-    source_id(pt),
-    gps_time(pt),
-  )
-end
-
-distinct_fields(pt) = distinct_fields(typeof(pt), pt)
-distinct_fields(::Type{<:PointRecord{0}}, pt) = ()
-distinct_fields(::Type{<:PointRecord{1}}, pt) = (gps_time(pt),)
-distinct_fields(::Type{<:PointRecord{2}}, pt) = (color_channels(NTuple{3,UInt16}, pt),)
-function distinct_fields(::Type{<:PointRecord{3}}, pt)
-  (gps_time(pt), color_channels(NTuple{3,UInt16}, pt))
-end
-distinct_fields(::Type{<:PointRecord{4}}, pt) = (gps_time(pt), waveform_packet(pt))
-function distinct_fields(::Type{<:PointRecord{5}}, pt)
-  (gps_time(pt), color_channels(NTuple{3,UInt16}, pt), waveform_packet(pt))
-end
-distinct_fields(::Type{<:PointRecord{6}}, pt) = ()
-distinct_fields(::Type{<:PointRecord{7}}, pt) = (color_channels(NTuple{3,UInt16}, pt),)
-distinct_fields(::Type{<:PointRecord{8}}, pt) = (color_channels(NTuple{4,UInt16}, pt),)
-distinct_fields(::Type{<:PointRecord{9}}, pt) = (waveform_packet(pt),)
-function distinct_fields(::Type{<:PointRecord{10}}, pt)
-  (color_channels(NTuple{4,UInt16}, pt), waveform_packet(pt))
-end
-
-all_fields(pt) = all_fields(typeof(pt), pt)
-function all_fields(T::Type{<:PointRecord{F,N}}, pt) where {F,N}
-  (core_fields(T, pt)..., distinct_fields(T, pt)..., extra_bytes(NTuple{N,UInt8}, pt))
-end
-all_fields(::Type{<:UnknownPointRecord}, pt) = (pt.data,)
+# decode metadata bits for legacy formats
+meta_rnumber(data::NTuple{2}) = data[1] & 0b00000111 # bits 0–2
+meta_rcount(data::NTuple{2}) = (data[1] & 0b00111000) >> 3 # bits 3–5
+meta_ltr(data::NTuple{2}) = !iszero(data[1] & 0b01000000) # bit 6
+meta_edge(data::NTuple{2}) = !iszero(data[1] & 0b10000000) # bit 7
+meta_class(data::NTuple{2}) = data[2] & 0b00011111 # bits 0–4
+meta_synthetic(data::NTuple{2}) = !iszero(data[2] & 0b00100000) # bit 5
+meta_keypt(data::NTuple{2}) = !iszero(data[2] & 0b01000000) # bit 6
+meta_withheld(data::NTuple{2}) = !iszero(data[2] & 0b10000000) # bit 7
+meta_overlap(data::NTuple{2}) = meta_class(data) == 12
+meta_channel(data::NTuple{2}) = missing # unavailable for legacy points
 
 function Base.show(io::Base.IO, pt::UnknownPointRecord)
   bytes = map(b -> string(b; base = 16, pad = 2), pt.data)
@@ -531,7 +612,7 @@ function Base.show(io::Base.IO, pt::PointRecord{F,N}) where {F,N}
   if get(io, :typeinfo, Any) != typeof(pt)
     print(io, "PointRecord{", F, iszero(N) ? "" : ",$N", "}")
   end
-  coords = integer_coordinates(pt)
+  coords = coordinates(Integer, pt)
   print(io, "(X = ", coords[1], ", Y = ", coords[2], ", Z = ", coords[3])
   iszero(intensity(pt)) || print(io, ", intensity = ", intensity(pt))
   print(io, ", return = ", return_number(pt), "/", return_count(pt))
@@ -567,46 +648,6 @@ function Base.show(io::Base.IO, pt::PointRecord{F,N}) where {F,N}
     print(io, ", extra bytes = 0x", join(bytes))
   end
   print(io, ")")
-end
-
-integer_coordinates(io::Base.IO) = ntuple(_ -> read(io, Int32), 3)
-intensity(::Type{UInt16}, io::Base.IO) = read(io, UInt16)
-function encoded_attributes(::Type{NTuple{N,UInt8}}, io::Base.IO) where {N}
-  ntuple(_ -> read(io, UInt8), N)
-end
-integer_scan_angle(::Type{T}, io::Base.IO) where {T<:Union{Int8,Int16}} = read(io, T)
-user_data(io::Base.IO) = read(io, UInt8)
-source_id(io::Base.IO) = read(io, UInt16)
-gps_time(io::Base.IO) = read(io, Float64)
-function waveform_packet(io::Base.IO)
-  map(read(io, T), (UInt8, UInt64, UInt32, Float32, Float32, Float32, Float32))
-end
-function color_channels(::Type{NTuple{N,UInt16}}, io::Base.IO) where {N}
-  @assert N == 3 || N == 4
-  ntuple(_ -> read(io, UInt16), N)
-end
-function extra_bytes(::Type{NTuple{N,UInt8}}, io::Base.IO) where {N}
-  ntuple(_ -> read(io, UInt8), N)
-end
-
-# do not try to convert point to itself (needed to override method below)
-Base.convert(::Type{T}, pt::T) where {T<:PointRecord} = pt
-Base.convert(::Type{T}, pt) where {T<:PointRecord} = T(all_fields(T, pt)...)
-
-function Base.read(io::Base.IO, ::Type{UnknownPointRecord{F,N}}) where {F,N}
-  UnknownPointRecord{F,N}(ntuple(_ -> read(io, UInt8), N))
-end
-
-Base.read(io::Base.IO, ::Type{T}) where {T<:PointRecord} = T(all_fields(T, io)...)
-
-function Base.write(io::Base.IO, pt::T) where {T<:PointRecord}
-  for field in all_fields(pt)
-    if field isa Tuple
-      foreach(val -> write(io, val), field)
-    else
-      write(io, field)
-    end
-  end
 end
 
 point_record_number(::Type{<:PointRecord{F}}) where {F} = F
@@ -710,7 +751,7 @@ function las_points(::Type{T}, attrs; coord_scale, coord_offset) where {T<:Point
   allequal(length.(values(attrs))) || error("Point attributes do not have the same length")
   points = Vector{T}(undef, length(attrs.x))
   @assert all(axes(a) == axes(points) for a in values(attrs))
-  attrs = normalized_attributes(T, attrs) # combines encoded attributes
+  attrs = normalized_attributes(T, attrs) # combines encoded metadata
   for ind in eachindex(points)
     coords = (attrs.x[ind], attrs.y[ind], attrs.z[ind])
     int_coords = round.(Int32, (coords .- coord_offset) ./ coord_scale)
@@ -720,7 +761,7 @@ function las_points(::Type{T}, attrs; coord_scale, coord_offset) where {T<:Point
         int_coords
       elseif haskey(attrs, f)
         convert(F, attrs[f][ind])
-      elseif f == :attributes
+      elseif f == :metadata
         T <: LegacyPointRecord ? (0x0, 0x0) : (0x0, 0x0, 0x0)
       elseif f == :extra_bytes
         ntuple(_ -> 0x0, point_record_nonstandard_bytes(T))
@@ -734,13 +775,7 @@ function las_points(::Type{T}, attrs; coord_scale, coord_offset) where {T<:Point
   points
 end
 
-function encode_attributes_unused(::Type{T}, attrs::NamedTuple) where {T<:PointRecord}
-  isconcretetype(T) || return encode_attributes(point_record_type(T), attrs)
-  @assert allequal(length.(values(attrs)))
-  count = length(first(attrs))
-end
-
-function attribute_sizes(::Type{<:PointRecord})
+function metadata_sizes(::Type{<:PointRecord})
   (
     return_number = 4,
     return_count = 4,
@@ -755,7 +790,7 @@ function attribute_sizes(::Type{<:PointRecord})
   )
 end
 
-function attribute_sizes(::Type{<:LegacyPointRecord})
+function metadata_sizes(::Type{<:LegacyPointRecord})
   (
     return_number = 3,
     return_count = 3,
@@ -768,13 +803,13 @@ function attribute_sizes(::Type{<:LegacyPointRecord})
   )
 end
 
-attribute_sizes(pts::AbstractArray) = attribute_sizes(eltype(pts))
-@assert sum(attribute_sizes(PointRecord{6})) == 24
-@assert sum(attribute_sizes(PointRecord{1})) == 16
+metadata_sizes(pts::AbstractArray) = metadata_sizes(eltype(pts))
+@assert sum(metadata_sizes(PointRecord{6})) == 24
+@assert sum(metadata_sizes(PointRecord{1})) == 16
 
 function normalized_attributes(pts, attrs)
   # note: pts can be arrary or just the point type
-  ATTRS = attribute_sizes(pts)
+  ATTRS = metadata_sizes(pts)
   # rename left-to-right
   ltr, rtl = :is_left_to_right, :is_right_to_left
   encoded = NamedTuple(
@@ -784,32 +819,31 @@ function normalized_attributes(pts, attrs)
   isempty(encoded) && return attrs
   rest = NamedTuple(k => v for (k, v) in pairs(attrs) if !haskey(ATTRS, k))
 
-  (; rest..., attributes = encode_attributes(pts, encoded))
+  (; rest..., metadata = encode_metadata(pts, encoded))
 end
 
-pad_attributes(::Type{<:PointRecord}, _) = zero(UInt32)
-function pad_attributes(pts::AbstractVector{<:PointRecord}, ind)
-  reinterpret(UInt32, (encoded_attributes(NTuple{3,UInt8}, pts[ind])..., 0x0))
+pad_metadata(::Type{<:PointRecord}, _) = zero(UInt32)
+function pad_metadata(pts::AbstractVector{<:PointRecord}, ind)
+  bytes = attribute(Val(:metadata), pts, ind)
+  padding = ntuple(_ -> 0x0, 4 - fieldcount(typeof(bytes)))
+  reinterpret(UInt32, (bytes..., padding...))
 end
-function pad_attributes(pts::AbstractVector{<:LegacyPointRecord}, ind)
-  reinterpret(UInt32, (encoded_attributes(NTuple{2,UInt8}, pts[ind])..., 0x0, 0x0))
-end
-unpad_attributes(pts::AbstractVector, ind) = unpad_attributes(eltype(pts), ind)
-unpad_attributes(T::Type{<:PointRecord}, attr) = reinterpret(NTuple{4,UInt8}, attr)[1:3]
-function unpad_attributes(T::Type{<:LegacyPointRecord}, attr)
-  reinterpret(NTuple{4,UInt8}, attr)[1:2]
+unpad_metadata(::AbstractVector{P}, data) where {P<:PointRecord} = unpad_metadata(P, data)
+function unpad_metadata(::Type{P}, data) where {P<:PointRecord}
+  N = fieldcount(fieldtype(P, :metadata))
+  reinterpret(NTuple{4,UInt8}, data)[1:N]
 end
 
-function encode_attributes(pts::Union{AbstractVector,Type}, attrs::NamedTuple)
+function encode_metadata(pts::Union{AbstractVector,Type}, attrs::NamedTuple)
   # note: pts can be array or just the point type
-  ATTRS = attribute_sizes(pts)
+  ATTRS = metadata_sizes(pts)
 
   # make sure lengths are compatible
   ptcount = length(first(attrs))
   @assert allequal(map(length, attrs))
   pts isa AbstractVector && @assert length(pts) == ptcount
 
-  # make sure attributes have the correct type
+  # make sure metadata fields have the correct type
   for (key, vals) in pairs(attrs)
     haskey(ATTRS, key) || error("Unknown point attribute: $key")
     T = ATTRS[key] == 1 ? Bool : Integer
@@ -823,19 +857,19 @@ function encode_attributes(pts::Union{AbstractVector,Type}, attrs::NamedTuple)
     end
   end
 
-  # find position of attributes
+  # find position of metadata attributes
   findshift(k) = sum(values(ATTRS)[1:findfirst(==(k), keys(ATTRS))-1]; init = 0)
   shifts = NamedTuple(k => findshift(k) for k in keys(attrs))
   masks =
     NamedTuple(k => ~(((0x1 << ATTRS[k]) - UInt32(1)) << shifts[k]) for k in keys(attrs))
 
   map(1:ptcount) do ind
-    attr = pad_attributes(pts, ind)
+    attr = pad_metadata(pts, ind)
     for (key, vals) in pairs(attrs)
       attr = (attr & masks[key]) | (UInt32(vals[ind]) << shifts[key])
     end
     #reinterpret(NTuple{4,UInt8}, attr)[1:(eltype(p]
-    unpad_attributes(pts, attr)
+    unpad_metadata(pts, attr)
   end
 end
 
