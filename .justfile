@@ -2,6 +2,7 @@
 # See https://github.com/casey/just for more information.
 set positional-arguments
 
+benchmarktools_version := "1.5.0"
 documenter_version := "1.4.1"
 liveserver_version := "1.3.1"
 formatter_version := "1.0.56"
@@ -101,3 +102,17 @@ format *params:
   else
     check || println("[No changes]")
   end
+
+# Run performance tests
+benchmark *params:
+  #!/usr/bin/env julia
+  import Pkg
+  let
+    io = ("-v" in ARGS || "--verbose" in ARGS) ? stderr : devnull
+    Pkg.activate(; temp=true, io)
+    empty!(LOAD_PATH)
+    push!(LOAD_PATH, "@", "@stdlib")
+    Pkg.develop(path = "."; io)
+    Pkg.add(Pkg.PackageSpec(name="BenchmarkTools", version="{{benchmarktools_version}}"); preserve = Pkg.PRESERVE_TIERED_INSTALLED, io)
+  end
+  include(joinpath(pwd(), "perf", "runbenchmarks.jl"))
