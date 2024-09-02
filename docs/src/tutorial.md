@@ -88,9 +88,6 @@ The `LAS` behaves as a collection of `PointRecord`s similar to a `Vector`.
 julia> length(las)
 16107898
 
-julia> eltype(las)
-PointRecord{1}
-
 julia> las[1]
 PointRecord{1}(X = 32250320, Y = 430799725, Z = 5799, intensity = 0.00134279, return = 1/2, classification = 17, flags = [right-to-left], scan angle = +17°, GPS time = 8.23926e7, user data = 1, source ID = 8997)
 ```
