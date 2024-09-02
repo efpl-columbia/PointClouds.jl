@@ -12,12 +12,35 @@ directly accessing struct fields is discouraged. Note that some attributes are
 not all available for all PDRFs.
 
   - 3D position: [`coordinates`](@ref)
-  - color information: [`color_channels`](@ref) *(RGB for PDRFs 2/3/5/7, RGB + NIR for PDRFs 8/10)*
-  - time at which point was recorded: [`gps_time`](@ref) *(PDRFs 1 & 3–10)*
-  - information about the laser pulse return: [`intensity`](@ref), [`return_number`](@ref), [`return_count`](@ref), [`waveform_packet`](@ref) *(PDRFs 4/5/9/10 only)*
-  - scanner/flight path information: [`scan_angle`](@ref) *(higher resolution for PDRFs 6–10)*, [`is_left_to_right`](@ref), [`is_right_to_left`](@ref), [`is_edge_of_line`](@ref), [`scanner_channel`](@ref) *(PDRFs 6–10 only)*, [`source_id`](@ref)
-  - point record classification: [`classification`](@ref), [`is_key_point`](@ref), [`is_overlap`](@ref) *(all PDRFs, based on classification for PDRF 0–5)*, [`is_synthetic`](@ref), [`is_withheld`](@ref)
+  - color information: [`color_channels`](@ref) *(RGB for PDRFs 2/3/5/7,
+    RGB + NIR for PDRFs 8/10)*
+  - information about the laser pulse return: [`intensity`](@ref),
+    [`return_number`](@ref), [`return_count`](@ref), [`waveform_packet`](@ref)
+    *(PDRFs 4/5/9/10 only)*
+  - point record classification: [`classification`](@ref),
+    [`is_key_point`](@ref), [`is_overlap`](@ref) *(all PDRFs, based on
+    classification for PDRF 0–5)*, [`is_synthetic`](@ref),
+    [`is_withheld`](@ref)
+  - scanner/flight path information: [`scan_angle`](@ref) *(higher resolution
+    for PDRFs 6–10)*, [`is_left_to_right`](@ref), [`is_right_to_left`](@ref),
+    [`is_edge_of_line`](@ref), [`scanner_channel`](@ref) *(PDRFs 6–10 only)*,
+    [`source_id`](@ref), [`gps_time`](@ref) *(PDRFs 1 & 3–10)*
   - custom attributes: [`user_data`](@ref), [`extra_bytes`](@ref)
+
+These functions all have a similar signature:
+
+    attribute([T], p::PointRecord)
+    attribute([T], points, inds = :)
+
+The attribute can be read from a single point record `p` or from the collection
+`points` at one or multiple indices `inds` (`:` by default), returning a vector
+of attribute values in the latter case.
+By default, the values are returned as normalized `Float64` or `Int` values
+such that the caller does not have to be aware of the details of how the data
+is stored in different PDRFs.
+The optional type argument `T` can be used to specify an integer type that the
+raw values are converted to (without normalization), or simply set to `Integer`
+to obtain the raw values.
 """
 abstract type PointRecord{F,N} end
 
@@ -337,58 +360,221 @@ function attribute(f, ::Val{F}, pts::AbstractVector{P}, inds = :) where {P<:Poin
   end
 end
 
+# 3D position
+
 """
     coordinates(Integer, p::PointRecord)
-    coordinates(Integer, points, inds)
+    coordinates(Integer, points, inds = :)
 
-Obtain the “raw” x-, y-, and z-coordinate of one or multiple point records as a
-tuple of 32-bit integers. The meaning of these coordinates depends on a scaling
-and a coordinate reference system that are external to the point record. The
-first argument can also be used to specify a different integer type.
+Obtain the “raw” x-, y-, and z-coordinate as a tuple of 32-bit integers. The
+meaning of these coordinates depends on a scaling and a coordinate reference
+system that are external to the point record.
+
+The coordinates are read from a single point `p` or from the collection
+`points` at one or multiple indices `inds`, returning a vector of values in the
+latter case. The first argument also be used to specify a specific integer type
+for the coordinates.
+
+See also: [`PointRecord`](@ref)
 """
 coordinates(::Type{T}, src...) where {T<:Integer} =
   attribute(a -> convert.(T, a), Val(:coords), src...)
 
+# Color attributes
+
+"""
+    color_channels(p::PointRecord)
+    color_channels(points, inds = :)
+
+Obtain the intensity associated with each color channel as a tuple of values
+normalized to the range from 0 to 1. For PDRFs 2, 3, 5, and 7, this returns
+three values that correspond to the red, green, and blue channel whereas PDRFs
+8 and 10 include a fourth value for the near infrared channel. For PDRFs that
+do not include color information `missing` is returned.
+
+See also: [`PointRecord`](@ref), [`intensity`](@ref)
+"""
+color_channels(src...) = attribute(a -> a ./ typemax(UInt16), Val(:color_channels), src...)
+
+"""
+    color_channels(Integer, p::PointRecord)
+    color_channels(Integer, points, inds = :)
+
+Obtain the “raw” intensity associated with each color channel as a tuple of
+unsigned 16-bit integers. For PDRFs 2, 3, 5, and 7, this returns three values
+that correspond to the red, green, and blue channel whereas PDRFs 8 and 10
+include a fourth value for the near infrared channel. Values should be
+normalized to cover the range 0 to 65535. For PDRFs that do not include color
+information `missing` is returned.
+
+See also: [`PointRecord`](@ref), [`intensity`](@ref)
+"""
+color_channels(::Type{T}, src...) where {T<:Integer} =
+  attribute(a -> convert(T, a), Val(:color_channels), src...)
+
+# Laser pulse return attributes
+
 """
     intensity(p::PointRecord)
+    intensity(points, inds = :)
 
 Obtain the intensity of the pulse return, normalized such that the dynamic
 range of the sensor is represented by the range from 0 to 1.
 
-See also: `color_channels`
+See also: [`PointRecord`](@ref), [`color_channels`](@ref),
+[`return_number`](@ref), [`return_count`](@ref), [`waveform_packet`](@ref)
 """
 intensity(src...) = attribute(a -> a / typemax(UInt16), Val(:intensity), src...)
 
 """
     intensity(Integer, p::PointRecord)
+    intensity(Integer, points, inds = :)
 
-Obtain the “raw” intensity of a point record as a `UInt16`, unless a specific
-integer type is passed as the first argument. Values are normalized such that
-the dynamic range of the sensor is corresponds to the range from 0 to
-`typemax(UInt16)`.
+Obtain the “raw” intensity of a point record as a unsigned 16-bit integer.
+Values should be normalized such that the dynamic range of the sensor
+corresponds to the range from 0 to 65535.
+
+See also: [`PointRecord`](@ref), [`color_channels`](@ref),
+[`return_number`](@ref), [`return_count`](@ref), [`waveform_packet`](@ref)
 """
 intensity(::Type{T}, src...) where {T<:Integer} =
   attribute(a -> convert(T, a), Val(:intensity), src...)
 # note: intensity is optional, but we still return 0 and not missing for type stability
 
 """
-    color_channels(p::PointRecord)
+    return_number([T], p::PointRecord)
+    return_number([T], points, inds = :)
 
-Obtain the intensity associated with each color channel as a tuple of `UInt16`s.
-For PDRFs 2, 3, 5, and 7, this returns three values that correspond to the red,
-green, and blue channel whereas PDRFs 8 and 10 include a fourth value for the
-near infrared channel. Values should be normalized to cover the range
-`typemin(UInt16)` to `typemax(UInt16)`. For other PDRFs that do not include
-color information `missing` is returned.
+Obtain which return of the laser pulse produced the point data record.
+The value is between 1 and 15 for the PDRFs 6–10, and between 1 and 5 for the
+legacy PDRFs 0–5.
+
+See also: [`PointRecord`](@ref), [`intensity`](@ref), [`return_count`](@ref),
+[`waveform_packet`](@ref)
 """
-color_channels(src...) = attribute(Val(:color_channels), src...)
+return_number(::Type{T}, src...) where {T<:Integer} =
+  attribute(data -> convert(T, meta_rnumber(data)), Val(:metadata), src...)
+return_number(src...) = return_number(Int, src...)
+
+"""
+    return_count([T], p::PointRecord)
+    return_count([T], points, inds = :)
+
+Obtain the total number of returns produced by the laser pulse.
+The value is between 1 and 15 for the PDRFs 6–10, and between 1 and 5 for the
+legacy PDRFs 0–5.
+
+See also: [`PointRecord`](@ref), [`intensity`](@ref), [`return_number`](@ref),
+[`waveform_packet`](@ref)
+"""
+return_count(::Type{T}, src...) where {T<:Integer} =
+  attribute(data -> convert(T, meta_rcount(data)), Val(:metadata), src...)
+return_count(src...) = return_count(Int, src...)
+
+"""
+    waveform_packet(p::PointRecord)
+    waveform_packet(points, inds = :)
+
+Obtain the raw waveform packet of a point record for PDRFs 4/5/9/10, or
+`missing` if the PDRFs does not include waveform packets. Note that
+PointClouds.jl currently has very limited functionality for handling waveform
+data.
+
+See also: [`PointRecord`](@ref), [`intensity`](@ref), [`return_number`](@ref),
+[`return_count`](@ref)
+"""
+waveform_packet(src...) = attribute(Val(:waveform_packet), src...)
+
+# Classification attributes
+
+"""
+    classification([T], p::PointRecord)
+    classification([T], points, inds = :)
+
+Obtain the class that has been assigned to the point data record, as a UInt8 or
+the integer type `T`, if specified. Values in the range 0–63 either correspond
+to an ASPRS standard point class or are reserved for future standardization,
+whereas the meaning of values in the range 64–255 is user definable.
+
+The ASPRS standard point classes are created/never classified (0), unclassified
+(1), ground (2), low vegetation (3), medium vegetation (4), high vegetation
+(5), building (6), low point/noise (7), water (9), rail (10), road surface
+(11), wire-guard/shield (13), wire-conductor/phase (14), transmission tower
+(15), wire-structure connector (16), bridge deck (17), high noise (18),
+overhead structure (19), ignored ground (20), snow (21), and temporal exclusion
+(22).
+
+See also: [`PointRecord`](@ref), [`is_key_point`](@ref), [`is_overlap`](@ref),
+[`is_synthetic`](@ref), [`is_withheld`](@ref)
+"""
+classification(::Type{T}, src...) where {T<:Integer} =
+  attribute(a -> convert(T, meta_class(a)), Val(:metadata), src...)
+classification(src...) = classification(Int, src...)
+
+"""
+    is_key_point(p::PointRecord)
+    is_key_point(points, inds = :)
+
+Check whether the point is marked as a *key point* that should not be removed
+when reducing the point density.
+
+See also: [`PointRecord`](@ref), [`classification`](@ref),
+[`is_overlap`](@ref), [`is_synthetic`](@ref), [`is_withheld`](@ref)
+"""
+is_key_point(src...) = attribute(meta_keypt, Val(:metadata), src...)
+
+"""
+    is_overlap(p::PointRecord)
+    is_overlap(points, inds = :)
+
+Check whether the point is marked as *overlap*, e.g. of two flight paths. This
+is recorded as a classification (class 12) or as a separate flag (PDRFs 6–10
+only) to allow for further classification of overlap points.
+
+See also: [`PointRecord`](@ref), [`classification`](@ref),
+[`is_key_point`](@ref), [`is_synthetic`](@ref), [`is_withheld`](@ref)
+"""
+is_overlap(src...) = attribute(meta_overlap, Val(:metadata), src...)
+
+"""
+    is_synthetic(p::PointRecord)
+    is_synthetic(points, inds = :)
+
+Check whether the point is marked as obtained through “synthetic” means (e.g.
+photogrammetry) rather than direct measurement with a laser pulse.
+
+See also: [`PointRecord`](@ref), [`classification`](@ref),
+[`is_key_point`](@ref), [`is_overlap`](@ref), [`is_withheld`](@ref)
+"""
+is_synthetic(src...) = attribute(meta_synthetic, Val(:metadata), src...)
+
+"""
+    is_withheld(p::PointRecord)
+    is_withheld(points, inds = :)
+
+Check whether the point is marked as *withheld*/deleted and should be skipped
+in further processing.
+
+See also: [`PointRecord`](@ref), [`classification`](@ref),
+[`is_key_point`](@ref), [`is_overlap`](@ref), [`is_synthetic`](@ref)
+"""
+is_withheld(src...) = attribute(meta_withheld, Val(:metadata), src...)
+
+# Scanner & flight path attributes
 
 """
     scan_angle(p::PointRecord)
+    scan_angle(points, inds = :)
 
-Obtain the angle (as a `Float64`) of the laser beam that scanned the point `p`. The value is defined as the angle in degrees relative to the nadir (i.e. corrected for airplane roll), with 0° pointing straight down, negative values towards the left, and positive values towards the right of the flight path. The values range from −180° to +180° in increments of 0.006° for the PDRFs 6–10, and from −90° to +90° in increments of 1° for the legacy PDRFs 0–5.
+Obtain the angle (in degrees) of the laser beam that scanned the point. The
+value is defined as the angle relative to the nadir (i.e. corrected for
+airplane roll), with 0° pointing straight down, negative values towards the
+left, and positive values towards the right of the flight path. The values
+range from −180° to +180° in increments of 0.006° for the PDRFs 6–10, and from
+−90° to +90° in increments of 1° for the legacy PDRFs 0–5.
 
-See also: [`is_edge_of_line`](@ref), [`is_left_to_right`](@ref), [`is_right_to_left`](@ref)
+See also: [`PointRecord`](@ref), [`is_left_to_right`](@ref),
+[`is_right_to_left`](@ref), [`is_edge_of_line`](@ref)
 """
 scan_angle(src...) = attribute(normalize_scan_angle, Val(:scan_angle), src...)
 
@@ -405,134 +591,62 @@ end
 
 """
     scan_angle(Integer, p::PointRecord)
+    scan_angle(Integer, points, inds = :)
 
-Obtain the “raw” scan angle of a point record as an `Int8` or `Int16` depending
-on the point data record format, unless a specific integer type is passed as
-the first argument.
+Obtain the “raw” scan angle of a point record as a signed 8- or 16-bit integer,
+depending on the PDRF. The values correspond to increments of 0.006° for the
+PDRFs 6–10, and increments of 1° for the legacy PDRFs 0–5.
+
+See also: [`PointRecord`](@ref), [`is_left_to_right`](@ref),
+[`is_right_to_left`](@ref), [`is_edge_of_line`](@ref)
 """
 scan_angle(::Type{T}, src...) where {T<:Integer} =
   attribute(a -> convert(T, a), Val(:scan_angle), src...)
 
 """
-    gps_time(p::PointRecord)
+    is_left_to_right(p::PointRecord)
+    is_left_to_right(points, inds = :)
 
-Obtain the GPS time at which a point was recorded as a `Float64`, or `missing`
-if the point record data format does not include a GPS time.
+Check whether the scanner mirror was moving left to right relative to the
+in-track direction (increasing scan angle) when the point was recorded.
 
-Refer to the `has_adjusted_gps_time` field of [`LAS`](@ref) for the interpretation of the time value.
+See also: [`PointRecord`](@ref), [`scan_angle`](@ref),
+[`is_right_to_left`](@ref), [`is_edge_of_line`](@ref)
 """
-gps_time(src...) = attribute(Val(:gps_time), src...)
-
-"""
-    waveform_packet(p::PointRecord)
-
-Obtain the raw waveform packet of a point record, or `missing` if the point
-record data format does not include waveform packets. Note that PointClouds.jl
-currently has very limited functionality for handling waveform data.
-"""
-waveform_packet(src...) = attribute(Val(:waveform_packet), src...)
+is_left_to_right(src...) = attribute(meta_ltr, Val(:metadata), src...)
 
 """
-    source_id([T], p::PointRecord)
+    is_right_to_left(p::PointRecord)
+    is_right_to_left(points, inds = :)
 
-Obtain the source ID of a point as a `UInt16`. This may be used to group points
-that were recorded in a uniform manner, e.g. during the same flight line.
+Check whether the scanner mirror was moving right to left relative to the
+in-track direction (decreasing scan angle) when the point was recorded.
+
+See also: [`PointRecord`](@ref), [`scan_angle`](@ref),
+[`is_left_to_right`](@ref), [`is_right_to_left`](@ref)
 """
-source_id(::Type{T}, src...) where {T<:Integer} =
-  attribute(a -> convert(T, a), Val(:source_id), src...)
-source_id(src...) = source_id(Int, src...)
-
-"""
-    user_data(p::PointRecord)
-
-Obtain the “user data” byte of a point record as a `UInt8`. This byte is included
-in all PDRFs but does not have any standardized meaning.
-
-See also: [`extra_bytes`](@ref)
-"""
-user_data(src...) = attribute(Val(:user_data), src...)
+is_right_to_left(src...) = attribute(!meta_ltr, Val(:metadata), src...)
 
 """
-    extra_bytes(p::PointRecord)
+    is_edge_of_line(p::PointRecord)
+    is_edge_of_line(points, inds = :)
 
-Obtain the “extra bytes” of a point record as a tuple of `UInt8`s. The meaning
-of these bytes may be described with a variable-length record.
+Check whether the point was recorded at the edge of a scan line.
 
-See also: [`user_data`](@ref)
+See also: [`PointRecord`](@ref), [`scan_angle`](@ref),
+[`is_left_to_right`](@ref), [`is_right_to_left`](@ref)
 """
-extra_bytes(src...) = attribute(Val(:extra_bytes), src...)
-
-"""
-    return_number([T], p::PointRecord)
-
-Obtain which return of the laser pulse produced the point data record, as a
-`UInt8`. Value between 1 and 15 for the PDRFs 6–10, and between 1 and 5 for the
-legacy PDRFs 0–5.
-
-See also: [`return_count`](@ref)
-"""
-return_number(::Type{T}, src...) where {T<:Integer} =
-  attribute(data -> convert(T, meta_rnumber(data)), Val(:metadata), src...)
-return_number(src...) = return_number(Int, src...)
-
-"""
-    return_count([T], p::PointRecord)
-
-Obtain the total number of returns produced by the laser pulse, as a `UInt8`.
-Value between 1 and 15 for the PDRFs 6–10, and between 1 and 5 for the legacy
-PDRFs 0–5.
-
-See also: [`return_number`](@ref)
-"""
-return_count(::Type{T}, src...) where {T<:Integer} =
-  attribute(data -> convert(T, meta_rcount(data)), Val(:metadata), src...)
-return_count(src...) = return_count(Int, src...)
-
-"""
-    is_synthetic(p::PointRecord)
-
-Check whether the point is marked as obtained through “synthetic” means (e.g.
-photogrammetry) rather than direct measurement with a laser pulse.
-
-See also: [`classification`](@ref), [`is_key_point`](@ref), [`is_overlap`](@ref), [`is_withheld`](@ref)
-"""
-is_synthetic(src...) = attribute(meta_synthetic, Val(:metadata), src...)
-
-"""
-    is_key_point(p::PointRecord)
-
-Check whether the point is marked as a *key point* that should not be removed
-when reducing the point density.
-
-See also: [`classification`](@ref), [`is_overlap`](@ref), [`is_synthetic`](@ref), [`is_withheld`](@ref)
-"""
-is_key_point(src...) = attribute(meta_keypt, Val(:metadata), src...)
-
-"""
-    is_withheld(p::PointRecord)
-
-Check whether the point is marked as *withheld*/deleted and should be skipped
-in further processing.
-
-See also: [`classification`](@ref), [`is_key_point`](@ref), [`is_overlap`](@ref), [`is_synthetic`](@ref)
-"""
-is_withheld(src...) = attribute(meta_withheld, Val(:metadata), src...)
-
-"""
-    is_overlap(p::PointRecord)
-
-Check whether the point is marked as *overlap*, e.g. of two flight paths. This
-is recorded as a classification (class 12) or as a separate flag (PDRFs 6–10
-only) to allow for further classification of overlap points.
-"""
-is_overlap(src...) = attribute(meta_overlap, Val(:metadata), src...)
+is_edge_of_line(src...) = attribute(meta_edge, Val(:metadata), src...)
 
 """
     scanner_channel([T], p::PointRecord)
+    scanner_channel([T], points, inds = :)
 
-Obtain the channel/scanner head of a multi-channel system, as a UInt8 between 0
-and 3. This is only supported for the PDRFs 6–10 and returns `missing` for the
-legacy PDRFs 0–5.
+Obtain the channel/scanner head of a multi-channel system, as an integer
+between 0 and 3. This is only supported for the PDRFs 6–10 and returns
+`missing` for the legacy PDRFs 0–5.
+
+See also: [`PointRecord`](@ref)
 """
 scanner_channel(::Type{T}, src...) where {T<:Integer} =
   attribute(Val(:metadata), src...) do a
@@ -542,59 +656,58 @@ scanner_channel(::Type{T}, src...) where {T<:Integer} =
 scanner_channel(src...) = scanner_channel(Int, src...)
 
 """
-    is_left_to_right(p::PointRecord)
+    source_id([T], p::PointRecord)
+    source_id([T], points, inds = :)
 
-Check whether the scanner mirror was moving left to right relative to the
-in-track direction (increasing scan angle) when the point was recorded.
+Obtain the source ID of a point record, which is defined as an integer between
+0 and 65535. This may be used to group points that were recorded in a uniform
+manner, e.g. during the same flight line.
 
-See also: [`is_right_to_left`](@ref), [`is_edge_of_line`](@ref), [`scan_angle`](@ref)
+See also: [`PointRecord`](@ref)
 """
-is_left_to_right(src...) = attribute(meta_ltr, Val(:metadata), src...)
-
-"""
-    is_right_to_left(p::PointRecord)
-
-Check whether the scanner mirror was moving right to left relative to the
-in-track direction (decreasing scan angle) when the point was recorded.
-
-See also: [`is_left_to_right`](@ref), [`is_edge_of_line`](@ref), [`scan_angle`](@ref)
-"""
-is_right_to_left(src...) = attribute(!meta_ltr, Val(:metadata), src...)
+source_id(::Type{T}, src...) where {T<:Integer} =
+  attribute(a -> convert(T, a), Val(:source_id), src...)
+source_id(src...) = source_id(Int, src...)
 
 """
-    is_edge_of_line(p::PointRecord)
+    gps_time(p::PointRecord)
+    gps_time(points, inds = :)
 
-Check whether the point was recorded at the edge of a scan line.
+Obtain the GPS time at which a point was recorded for the PDRFs 1 & 3–10, or
+`missing` if the PDRF does not include a GPS time. Refer to the
+`has_adjusted_gps_time` field of [`LAS`](@ref) for the interpretation of the
+time value.
 
-See also: [`is_left_to_right`](@ref), [`is_right_to_left`](@ref), [`scan_angle`](@ref)
+See also: [`PointRecord`](@ref)
 """
-is_edge_of_line(src...) = attribute(meta_edge, Val(:metadata), src...)
+gps_time(src...) = attribute(Val(:gps_time), src...)
+
+# Custom attributes
 
 """
-    classification([T], p::PointRecord)
+    user_data([T], p::PointRecord)
+    user_data([T], points, inds = :)
 
-Obtain the class that has been assigned to the point data record, as a UInt8 or
-the integer type `T`, if specified. Values in the range 0–63 either correspond
-to an ASPRS standard point class or are reserved for future standardization,
-whereas the meaning of values in the range 64–255 is user definable.
+Obtain the “user data” of a point record, which is defined as an integer
+between 0 and 255. This data is included in all PDRFs but does not have any
+standardized meaning.
 
-The ASPRS standard point classes are created/never classified (0), unclassified
-(1), ground (2), low vegetation (3), medium vegetation (4), high vegetation
-(5), building (6), low point/noise (7), water (9), rail (10), road surface
-(11), wire-guard/shield (13), wire-conductor/phase (14), transmission tower
-(15), wire-structure connector (16), bridge deck (17), high noise (18),
-overhead structure (19), ignored ground (20), snow (21), and temporal exclusion
-(22).
-
-The legacy PDRFs 0–5 only support values in the range 0–31 and only define
-meanings for the classes 0–9, with additional definitions for model key points
-(8) and overlap points (12).
-
-See also: [`is_key_point`](@ref), [`is_overlap`](@ref), [`is_synthetic`](@ref), [`is_withheld`](@ref)
+See also: [`PointRecord`](@ref), [`extra_bytes`](@ref)
 """
-classification(::Type{T}, src...) where {T<:Integer} =
-  attribute(a -> convert(T, meta_class(a)), Val(:metadata), src...)
-classification(src...) = classification(Int, src...)
+user_data(::Type{T}, src...) where {T<:Integer} =
+  attribute(a -> convert(T, a), Val(:user_data), src...)
+user_data(src...) = user_data(Int, src...)
+
+"""
+    extra_bytes(p::PointRecord)
+    extra_bytes(points, inds = :)
+
+Obtain the “extra bytes” of a point record as a tuple of `UInt8`s.
+The meaning of these bytes may be described with a variable-length record.
+
+See also: [`PointRecord`](@ref), [`user_data`](@ref)
+"""
+extra_bytes(src...) = attribute(Val(:extra_bytes), src...)
 
 # decode metadata bits for newer formats
 meta_rnumber(data::NTuple{3}) = data[1] & 0b00001111 # bits 0–3

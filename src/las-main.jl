@@ -1093,17 +1093,20 @@ end
 gettransform(las::LAS, ::Nothing) = identity
 
 """
-    coordinates(las::LAS, [index]; crs)
+    coordinates(las::LAS, inds = :; crs)
 
-Obtain the x-, y-, and z-coordinate of the `index`-th point record as a tuple
-of `Float64`s. The coordinate reference system (CRS) of the `LAS` is used
-unless a different `crs` is specified. To obtain coordinates of multiple
-points, pass a range of indices or `:` (default) as the `index` argument.
+Obtain the x-, y-, and z-coordinate of one or multiple point records as a tuple
+of floating-point numbers. The coordinate reference system (CRS) of the `LAS`
+is used unless a different `crs` is specified. To obtain coordinates of
+multiple points, pass a range of indices or `:` (default) as the `index`
+argument.
 
 # Keywords
 
   - `crs`: Transform the coordinates to a new coordinate reference system `crs`
     instead of the current CRS of the `LAS`.
+
+See also: [`LAS`](@ref), [`getcrs`](@ref)
 """
 function coordinates(las::LAS, args...; crs = nothing)
   tf = gettransform(las, crs)
@@ -1119,7 +1122,7 @@ Create a function that takes a `PointRecord` as its argument and returns the
 rescaled coordinates of that point; in the coordinate reference system (CRS) of
 `las` unless a different `crs` is specified.
 
-See also: `LAS`, `getcrs`
+See also: [`LAS`](@ref), [`getcrs`](@ref)
 """
 function coordinates(::Type{Function}, las::LAS; crs = nothing)
   tf = gettransform(las, crs)

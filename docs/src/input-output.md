@@ -48,15 +48,21 @@ information. PDRFs 0–1 (defined since LAS 1.0), 2–3 (defined in LAS 1.2) and
 future versions of the LAS standard. PDRFs 6–10 were introduced in LAS 1.4.
 
 In PointClouds.jl, LAS points are represented as [`PointRecord`](@ref)s. Use
-`Base.eltype` to obtain the point record type of a `LAS`. The point attribute
-functions listed below can be called on individual point records or on a LAS
-with one or multiple indices.
+`Base.eltype` to obtain the point record type of a `LAS`.
+The point attribute functions listed below can be called on individual point
+records or on a LAS with one or multiple indices.
+Apart from the [3D position](@ref), the attributes can include information
+about the [color](@ref "Color attributes") of the point, about the [laser pulse
+return](@ref "Laser pulse return attributes"), about the [point record
+classification](@ref "Classification attributes"), about the [scanner & flight
+path](@ref "Scanner & flight path attributes"), as well as some [custom
+data](@ref "Custom attributes").
 
 ```@docs
 PointRecord
 ```
 
-### 3D Position
+### 3D position
 
 The LAS format stores coordinates for each point as 32-bit integers. To obtain
 the actual coordinates, the integer coordinates have to be rescaled by a global
@@ -64,29 +70,33 @@ offset and scale factor that is defined in the LAS header.
 
 ```@docs
 coordinates(::Type{<:Integer}, ::PointRecord)
-coordinates(::LAS, ::Any)
 coordinates(::LAS)
+coordinates(::Type{Function}, ::LAS)
 ```
 
-### Color information
+### Color attributes
 
 ```@docs
 color_channels
 ```
 
-### Time information
-
-```@docs
-gps_time
-```
-
-### Laser pulse return
+### Laser pulse return attributes
 
 ```@docs
 intensity
 return_number
 return_count
 waveform_packet
+```
+
+### Classification attributes
+
+```@docs
+classification
+is_key_point
+is_overlap
+is_synthetic
+is_withheld
 ```
 
 ### Scanner & flight path attributes
@@ -98,16 +108,7 @@ is_right_to_left
 is_edge_of_line
 scanner_channel
 source_id
-```
-
-### Classification attributes
-
-```@docs
-classification
-is_key_point
-is_overlap
-is_synthetic
-is_withheld
+gps_time
 ```
 
 ### Custom attributes
