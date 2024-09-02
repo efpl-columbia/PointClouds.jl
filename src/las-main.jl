@@ -52,7 +52,7 @@ field of `LAS`.
   - `has_synthetic_return_numbers::Bool`
   - `has_well_known_text::Bool`
 """
-mutable struct LAS{P,V} <: AbstractPointCloud
+mutable struct LAS{P,V} <: AbstractPointCloud where {P<:AbstractVector{<:PointRecord}}
 
   # point & VLR data can be in custom containers
   points::P
@@ -352,7 +352,7 @@ fileformat(::Type{<:LAS{T}}) where {T} = fileformat(T)
 fileformat(::Type{<:MaskedPoints{T,P}}) where {T,P} = fileformat(P)
 fileformat(::Type{<:IndexedPoints{I,T,P}}) where {I,T,P} = fileformat(P)
 fileformat(::Type{<:UpdatedPoints{N,A,T,P}}) where {N,A,T,P} = fileformat(P)
-fileformat(::Type{T}) where {P<:PointRecord,T<:AbstractArray{P}} = "LAS"
+fileformat(::Type{T}) where {T<:AbstractVector{<:PointRecord}} = "LAS"
 fileformat(::Type{<:LASzipReader}) = "LAZ"
 Base.summary(io::Base.IO, ::Type{T}) where {T<:LAS} = print(io, fileformat(T))
 function Base.summary(io::Base.IO, las::LAS)
