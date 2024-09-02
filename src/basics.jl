@@ -153,7 +153,7 @@ function PointCloud(
   data = (; init_coords(input, coordinates)..., init_attrs(inputs, attrs)...)
 
   for input in inputs
-    coords = PointClouds.coordinates(input; crs = crs)
+    coords = PointClouds.coordinates(Function, input; crs = crs)
     load_points!(data, input, coords, attrs, extent, filter, tol)
   end
 

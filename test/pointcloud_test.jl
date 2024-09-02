@@ -1,3 +1,22 @@
+function test_load_from_las(; verbose)
+  data = (x = 1:5, y = 101:105, z = 100:100:500)
+  # workaround for constructing LAS with empty CRS record
+  las = LAS(data; has_well_known_text = true)
+  push!(
+    las.vlrs,
+    PointClouds.IO.VariableLengthRecord(
+      "LASF_Projection",
+      UInt16(2112),
+      zeros(UInt8, 1),
+      "",
+    ),
+  )
+  pts = PointCloud(las)
+  @test pts.x == data.x
+  @test pts.y == data.y
+  @test pts.z == data.z
+end
+
 function run_pointcloud_tests(; verbose)
   # setting up a basic point cloud from manually specified input data
   data = (
@@ -75,6 +94,8 @@ function run_pointcloud_tests(; verbose)
   rf = rasterize(pts, (3, 3); extent = ((0, 0), (8, 7)), neighbors = 2)
   @test map(collect, rf.x)[:] ==
         [[1, 2], [3, 2], [4, 3], [2, 3], [4, 3], [5, 4], [4, 3], [5, 4], [5, 4]]
+
+  test_load_from_las(; verbose)
 end
 
 @testset "PointCloud Type" run_pointcloud_tests(verbose = VERBOSE)
