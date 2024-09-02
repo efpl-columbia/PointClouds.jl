@@ -354,7 +354,15 @@ fileformat(::Type{<:IndexedPoints{I,T,P}}) where {I,T,P} = fileformat(P)
 fileformat(::Type{<:UpdatedPoints{N,A,T,P}}) where {N,A,T,P} = fileformat(P)
 fileformat(::Type{T}) where {T<:AbstractVector{<:PointRecord}} = "LAS"
 fileformat(::Type{<:LASzipReader}) = "LAZ"
-Base.summary(io::Base.IO, ::Type{T}) where {T<:LAS} = print(io, fileformat(T))
+function pointformat(::Type{<:AbstractVector{<:PointRecord{F,N}}}) where {F,N}
+  string("PointRecord{", F, iszero(N) ? "" : ",$N", "}")
+end
+function Base.summary(io::Base.IO, ::Type{T}) where {P,T<:LAS{P}}
+  print(io, fileformat(T))
+  get(io, :compact, false) || print(io, "{", pointformat(P), "}")
+  nothing
+end
+
 function Base.summary(io::Base.IO, las::LAS)
   print(io, format(length(las)), "-point ")
   summary(io, typeof(las))
@@ -368,7 +376,7 @@ function format(n::Integer, delimiter = ',')
 end
 
 function Base.show(io::Base.IO, las::LAS)
-  summary(io, las)
+  summary(IOContext(io, :compact => true), las)
   print(io, " (v$(las.version[1]).$(las.version[2])")
   print(io, ", ", point_record_description(eltype(las)), ", ")
   let (day, year) = las.creation_date
