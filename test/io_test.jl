@@ -163,7 +163,7 @@ function test_read_allocs()
 
   # check functions handling single point
   P = PointClouds.IO.PointRecord3{2}
-  @test noallocs(coordinates, (Type{Integer}, P,))
+  @test noallocs(coordinates, (Type{Integer}, P))
   @test noallocs(intensity, (P,))
 
   # check functions handling memory-mapped & laszip points
@@ -171,11 +171,10 @@ function test_read_allocs()
   Pz = PointClouds.IO.LASzipReader{P}
   for Ps in (Pm, Pz)
     L = LAS{Ps,Vector{PointClouds.IO.VariableLengthRecord}}
-    @test isempty(check_allocs(getindex, (L, Int)))
-    @test isempty(check_allocs(coordinates, (L, Int)))
-    @test isempty(check_allocs(intensity, (L, Int)))
-    iter(las) = (for pt in las; pt; end)
-    @test isempty(check_allocs(iter, (L,)))
+    @test noallocs(getindex, (L, Int))
+    @test noallocs(coordinates, (L, Int))
+    @test noallocs(intensity, (L, Int))
+    @test noallocs(foreach, (typeof(identity), L))
   end
 end
 
