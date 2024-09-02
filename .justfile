@@ -22,6 +22,8 @@ test *params:
   #!/usr/bin/env julia
   import Pkg
   Pkg.activate(".")
+  # replace relative paths in `--pdal` argument, since Pkg.test changes directory
+  replace!(a -> startswith(a, "--pdal=") ? "--pdal=" * abspath(a[8:end]) : a, ARGS)
   # try-block used to suppress unnecessary stacktrace in output
   try Pkg.test(test_args = ARGS) catch end
 

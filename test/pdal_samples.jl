@@ -69,7 +69,8 @@ Download and check LAS test files from PDAL. This only runs if it is explicitly
 requested with the `--pdal` command-line argument and downloads the sample
 files to a temporary folder. To avoid re-downloading the files use the
 argument `--pdal=folder` instead, where `folder` is the path where the files
-should be stored (absolute or relative to the `test` folder).
+should be stored (absolute or relative to the working directory, which is
+`test` when run with `Pkg.test`).
 """
 function check_pdal_samples(; verbose)
   any(startswith("--pdal"), ARGS) || return
