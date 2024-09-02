@@ -733,8 +733,15 @@ meta_withheld(data::NTuple{2}) = !iszero(data[2] & 0b10000000) # bit 7
 meta_overlap(data::NTuple{2}) = meta_class(data) == 12
 meta_channel(data::NTuple{2}) = missing # unavailable for legacy points
 
+# directly accessing point fields is discouraged, since their use is more
+# error-prone than the attribute accessor functions
+function Base.getproperty(::PointRecord, ::Symbol)
+  error("Use the functions listed in the `PointRecord` docstring \
+        to access point attributes.")
+end
+
 function Base.show(io::Base.IO, pt::UnknownPointRecord)
-  bytes = map(b -> string(b; base = 16, pad = 2), pt.data)
+  bytes = map(b -> string(b; base = 16, pad = 2), getfield(pt, :data))
   if get(io, :typeinfo, Any) == typeof(pt)
     print(io, "0x", join(bytes))
   else
@@ -761,8 +768,7 @@ function Base.show(io::Base.IO, pt::PointRecord{F,N}) where {F,N}
   print(io, ", flags = [", join(flags, ", "), "]")
 
   # if angle is defined as integer, print as Int64 so it has no decimal point
-  # but abs(pt) still works for typemin(Int16)
-  angle = pt isa LegacyPointRecord ? Int64(pt.scan_angle) : scan_angle(pt)
+  angle = pt isa LegacyPointRecord ? Int(scan_angle(pt)) : scan_angle(pt)
   angle_prefix = angle > 0 ? "+" : angle < 0 ? "−" : ""
   print(io, ", scan angle = ", angle_prefix, abs(angle), '°')
 

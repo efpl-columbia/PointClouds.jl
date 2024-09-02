@@ -1043,8 +1043,8 @@ function recompute_summary(coord_scale, coord_offset, points)
   for pt in points
     r = return_number(pt)
     !iszero(r) && (return_counts[r] += 1)
-    xmin, ymin, zmin = min.((xmin, ymin, zmin), pt.coords)
-    xmax, ymax, zmax = max.((xmax, ymax, zmax), pt.coords)
+    xmin, ymin, zmin = min.((xmin, ymin, zmin), coordinates(Integer, pt))
+    xmax, ymax, zmax = max.((xmax, ymax, zmax), coordinates(Integer, pt))
   end
   coord_min = (xmin, ymin, zmin) .* coord_scale .+ coord_offset
   coord_max = (xmax, ymax, zmax) .* coord_scale .+ coord_offset
