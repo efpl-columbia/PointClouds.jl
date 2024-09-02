@@ -218,11 +218,17 @@ readattr(::Type{P}, ::Val{F}, pt::P) where {P<:PointRecord,F} = getfield(pt, F)
 Read an attribute `attr` for a point record of type `T` from raw LAS `data`, at
 an (optional) `offset`.
 """
-function readattr(::Type{P}, ::Val{F}, data::AbstractVector{UInt8}, offset::Integer = 0) where {P<:PointRecord,F}
+function readattr(
+  ::Type{P},
+  ::Val{F},
+  data::AbstractVector{UInt8},
+  offset::Integer = 0,
+) where {P<:PointRecord,F}
   T = fieldtype(P, F)
   T <: Tuple{} && return () # reinterpret does not work for empty tuples
   # careful when making changes: sum should be computed at compile time!
-  offset += sum(ntuple(ind -> sizeof(fieldtype(P, ind)), Base.fieldindex(P, F) - 1), init = 0)
+  offset +=
+    sum(ntuple(ind -> sizeof(fieldtype(P, ind)), Base.fieldindex(P, F) - 1); init = 0)
   inds = (1:sizeof(T)) .+ offset
   @boundscheck checkbounds(data, inds)
   @inbounds reinterpret(T, view(data, inds))[]
@@ -249,7 +255,6 @@ function Base.write(io::Base.IO, pt::P) where {P<:PointRecord}
   foreach(val -> write.((io,), val), fields) # broadcast for tuples
 end
 
-
 """
     getattrs(attrs::Tuple, args...)
 
@@ -273,7 +278,11 @@ Obtain a tuple of attributes of a single point record, either given directly as
 function getattrs(attrs::Tuple, pt::P) where {P<:PointRecord}
   map(attr -> readattr(P, attr, pt), attrs)
 end
-Base.@propagate_inbounds getattrs(attrs::Tuple, pts::AbstractVector{P}, ind::Integer) where {P<:PointRecord} = getattrs(attrs, pts[ind])
+Base.@propagate_inbounds getattrs(
+  attrs::Tuple,
+  pts::AbstractVector{P},
+  ind::Integer,
+) where {P<:PointRecord} = getattrs(attrs, pts[ind])
 
 """
     getattrs(attrs::Tuple, points::AbstractVector{<:PointRecord}, [inds])
@@ -283,12 +292,17 @@ Obtain selected attributes of a multiple or all point records in the collection
 attribute values for each point. The `inds` can be an `AbstractRange` or `:`
 for all points, which is the default.
 """
-function getattrs(attrs::Tuple, pts::AbstractVector{P}, inds::AbstractRange) where {P<:PointRecord}
+function getattrs(
+  attrs::Tuple,
+  pts::AbstractVector{P},
+  inds::AbstractRange,
+) where {P<:PointRecord}
   @boundscheck checkbounds(pts, inds)
   ((@inbounds getattrs(attrs, pts, ind)) for ind in inds)
 end
-getattrs(attrs::Tuple, pts::AbstractVector{<:PointRecord}, ::Colon) = @inbounds getattrs(attrs, pts, axes(pts, 1))
-
+function getattrs(attrs::Tuple, pts::AbstractVector{<:PointRecord}, ::Colon)
+  @inbounds getattrs(attrs, pts, axes(pts, 1))
+end
 
 """
     attribute([f], attr::Val, p::PointRecord)
@@ -307,7 +321,12 @@ attribute(::Val{F}, args...) where {F} = attribute(identity, Val(F), args...)
 function attribute(f, ::Val{F}, pt::P) where {P<:PointRecord,F}
   f(hasfield(P, F) ? getattrs((Val(F),), pt)[1] : missing)
 end
-function attribute(f, ::Val{F}, pts::AbstractVector{P}, ind::Integer) where {P<:PointRecord,F}
+function attribute(
+  f,
+  ::Val{F},
+  pts::AbstractVector{P},
+  ind::Integer,
+) where {P<:PointRecord,F}
   f(hasfield(P, F) ? getattrs((Val(F),), pts, ind)[1] : missing)
 end
 function attribute(f, ::Val{F}, pts::AbstractVector{P}, inds = :) where {P<:PointRecord,F}
@@ -348,7 +367,8 @@ integer type is passed as the first argument. Values are normalized such that
 the dynamic range of the sensor is corresponds to the range from 0 to
 `typemax(UInt16)`.
 """
-intensity(::Type{T}, src...) where {T<:Integer} = attribute(a -> convert(T, a), Val(:intensity), src...)
+intensity(::Type{T}, src...) where {T<:Integer} =
+  attribute(a -> convert(T, a), Val(:intensity), src...)
 # note: intensity is optional, but we still return 0 and not missing for type stability
 
 """
@@ -390,7 +410,8 @@ Obtain the “raw” scan angle of a point record as an `Int8` or `Int16` depend
 on the point data record format, unless a specific integer type is passed as
 the first argument.
 """
-scan_angle(::Type{T}, src...) where {T<:Integer} = attribute(a -> convert(T, a), Val(:scan_angle), src...)
+scan_angle(::Type{T}, src...) where {T<:Integer} =
+  attribute(a -> convert(T, a), Val(:scan_angle), src...)
 
 """
     gps_time(p::PointRecord)
@@ -513,10 +534,11 @@ Obtain the channel/scanner head of a multi-channel system, as a UInt8 between 0
 and 3. This is only supported for the PDRFs 6–10 and returns `missing` for the
 legacy PDRFs 0–5.
 """
-scanner_channel(::Type{T}, src...) where {T<:Integer} = attribute(Val(:metadata), src...) do a
-  c = meta_channel(a)
-  ismissing(c) ? c : convert(T, c)
-end
+scanner_channel(::Type{T}, src...) where {T<:Integer} =
+  attribute(Val(:metadata), src...) do a
+    c = meta_channel(a)
+    ismissing(c) ? c : convert(T, c)
+  end
 scanner_channel(src...) = scanner_channel(Int, src...)
 
 """

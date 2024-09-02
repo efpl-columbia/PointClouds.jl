@@ -130,30 +130,49 @@ function hasattr(pdrf, attr)
   true
 end
 
-test_attributes() = @testset "PointRecord{$pdrf,$nextra}" for pdrf in 1:10, nextra in (0, 2)
-  las = LAS(PointRecord{pdrf, nextra})
-  P = eltype(las)
-  append!(las.points, reinterpret(P, rand(UInt8, sizeof(P) * 10)))
-  @testset "$attr" for attr in (classification, color_channels, coordinates,
-    extra_bytes, gps_time, intensity, is_edge_of_line, is_key_point,
-    is_left_to_right, is_overlap, is_right_to_left, is_synthetic, is_withheld,
-    return_count, return_number, scan_angle, scanner_channel, source_id,
-    user_data, waveform_packet)
-    ref = attr(las)
-    if hasattr(pdrf, attr)
-      @test all(attr(las, :) .=== ref)
-      @test all(attr(las, 1:10) .=== ref)
-      @test all(attr(las, 2:9) .=== ref[2:9])
-      @test attr(las, 5) === ref[5]
-      attr == coordinates && (attr = attr(Function, las))
-      @test attr(las[5]) === ref[5]
-    else
-      @test ismissing.(ref) == trues(10)
-      @test ismissing.(attr(las, :)) == trues(10)
-      @test ismissing.(attr(las, 1:10)) == trues(10)
-      @test ismissing.(attr(las, 2:9)) == trues(8)
-      @test ismissing(attr(las, 5))
-      @test ismissing(attr(las[5]))
+function test_attributes()
+  @testset "PointRecord{$pdrf,$nextra}" for pdrf in 1:10, nextra in (0, 2)
+    las = LAS(PointRecord{pdrf,nextra})
+    P = eltype(las)
+    append!(las.points, reinterpret(P, rand(UInt8, sizeof(P) * 10)))
+    @testset "$attr" for attr in (
+      classification,
+      color_channels,
+      coordinates,
+      extra_bytes,
+      gps_time,
+      intensity,
+      is_edge_of_line,
+      is_key_point,
+      is_left_to_right,
+      is_overlap,
+      is_right_to_left,
+      is_synthetic,
+      is_withheld,
+      return_count,
+      return_number,
+      scan_angle,
+      scanner_channel,
+      source_id,
+      user_data,
+      waveform_packet,
+    )
+      ref = attr(las)
+      if hasattr(pdrf, attr)
+        @test all(attr(las, :) .=== ref)
+        @test all(attr(las, 1:10) .=== ref)
+        @test all(attr(las, 2:9) .=== ref[2:9])
+        @test attr(las, 5) === ref[5]
+        attr == coordinates && (attr = attr(Function, las))
+        @test attr(las[5]) === ref[5]
+      else
+        @test ismissing.(ref) == trues(10)
+        @test ismissing.(attr(las, :)) == trues(10)
+        @test ismissing.(attr(las, 1:10)) == trues(10)
+        @test ismissing.(attr(las, 2:9)) == trues(8)
+        @test ismissing(attr(las, 5))
+        @test ismissing(attr(las[5]))
+      end
     end
   end
 end

@@ -5,7 +5,7 @@ set positional-arguments
 # package versions for recipe dependencies
 benchmarktools_version := "1.5.0"
 documenter_version := "1.4.1"
-formatter_version := "1.0.56"
+formatter_version := "1.0.60"
 liveserver_version := "1.3.1"
 revise_version := "3.5.14"
 

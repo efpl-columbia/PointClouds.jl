@@ -194,7 +194,10 @@ end
 function getattrs(attrs::Tuple, pts::MappedPoints{P}, inds::AbstractRange) where {P}
   @boundscheck checkbounds(pts, inds)
   offsets = (inds .- 1) .* point_record_bytes(P)
-  (map(attr -> (@inbounds readattr(P, attr, pts.data, offset)), attrs) for offset in offsets)
+  (
+    map(attr -> (@inbounds readattr(P, attr, pts.data, offset)), attrs) for
+    offset in offsets
+  )
 end
 
 # iteration/indexing interface methods for memory-mapped point data
@@ -205,7 +208,7 @@ end
 Base.isdone(pts::MappedPoints, ind = 1) = ind > length(pts)
 Base.getindex(pts::MappedPoints, inds::BitVector) = MaskedPoints(pts, inds)
 Base.getindex(pts::MappedPoints, inds::OrdinalRange) = IndexedPoints(pts, inds)
-function Base.getindex(pts::MappedPoints{P}, ind::Integer) where P
+function Base.getindex(pts::MappedPoints{P}, ind::Integer) where {P}
   P(getattrs(Val.(fieldnames(P)), pts, ind)...)
 end
 Base.filter(f::Function, pts::MappedPoints) = filter!(f, MaskedPoints(pts))
@@ -731,9 +734,10 @@ function LAS(io::Base.IO; read_points = :auto, override_crs = nothing)
   )
 end
 
-read_points!(io, pts) = foreach(eachindex(pts)) do ind
-  @inbounds pts[ind] = read(io, eltype(pts))
-end
+read_points!(io, pts) =
+  foreach(eachindex(pts)) do ind
+    @inbounds pts[ind] = read(io, eltype(pts))
+  end
 
 function Base.write(filename::AbstractString, las::LAS; format = nothing)
   if isnothing(format)
@@ -1039,7 +1043,6 @@ function recompute_summary(coord_scale, coord_offset, points)
   coord_min, coord_max, return_counts
 end
 
-
 """
     getcrs([T], las::LAS)
 
@@ -1081,7 +1084,6 @@ function gettransform(las::LAS, target)
 end
 gettransform(las::LAS, ::Nothing) = identity
 
-
 """
     coordinates(las::LAS, [index]; crs)
 
@@ -1118,8 +1120,8 @@ end
 
 # for all other attributes, no information from the LAS is needed, so they can
 # simply be forwarded to the `attribute` function of the points vector
-attribute(f, attr, las::LAS, ind::Integer)  = attribute(f, attr, las.points, ind)
-attribute(f, attr, las::LAS, args...)  = attribute(f, attr, las.points, args...)
+attribute(f, attr, las::LAS, ind::Integer) = attribute(f, attr, las.points, ind)
+attribute(f, attr, las::LAS, args...) = attribute(f, attr, las.points, args...)
 
 """
     update(las::LAS, [attributes]; kws...)

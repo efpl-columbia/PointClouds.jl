@@ -149,7 +149,6 @@ function Base.iterate(laz::LASzipReader, ind::Integer = 1)
 end
 Base.isdone(laz::LASzipReader, ind::Integer = 1) = ind > laz.count
 
-
 # read-only indexing interface
 Base.getindex(laz::LASzipReader, inds::BitVector) = MaskedPoints(laz, inds)
 Base.getindex(laz::LASzipReader, inds::OrdinalRange) = IndexedPoints(laz, inds)
