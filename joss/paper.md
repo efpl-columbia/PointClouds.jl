@@ -17,11 +17,13 @@ authors:
 affiliations:
   - name: Columbia University, New York, NY, USA
     index: 1
-  - name: Amazon, Seattle, WA, USA
+  - name: Amazon, Seattle, WA, USA[^1]
     index: 2
 date: 19 Jul 2024
 bibliography: references.bib
 ---
+
+[^1]: Marco G. Giometto holds concurrent appointments as Assistant Professor at Columbia University as Amazon Visiting Academic. This paper describes work performed at Columbia University and is not associated with Amazon.
 
 # Summary
 
