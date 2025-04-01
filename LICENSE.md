@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2024 Manuel F. Schmid and contributors
+Copyright (c) 2024 Trustees of Columbia University and contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

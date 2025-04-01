@@ -89,6 +89,9 @@ If you want to make sure your work fits within the plans and scope of PointCloud
 
 ## Attribution & License
 
+[![JOSS Paper](https://joss.theoj.org/papers/7885dd3306a23583dcf3963374c0c1cb/status.svg)](https://joss.theoj.org/papers/7885dd3306a23583dcf3963374c0c1cb)
 [![MIT License](https://img.shields.io/badge/License-MIT-D2D2C0)](./LICENSE.md)
 
 PointClouds.jl is freely available under the terms of the [MIT License](./LICENSE.md).
+A [JOSS](https://joss.theoj.org/) paper describing PointClouds.jl is currently [under review](https://joss.theoj.org/papers/7885dd3306a23583dcf3963374c0c1cb).
+Please cite this work if you use PointClouds.jl for your scientific publications.
