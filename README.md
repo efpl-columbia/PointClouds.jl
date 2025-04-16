@@ -58,7 +58,7 @@ After that, the package can be loaded as usual:
 julia> using PointClouds
 ```
 
-Load a LAS/LAZ file to access the point data:
+Use [`LAS(filename)`](https://docs.mfsch.dev/PointClouds.jl/input-output#Reading-and-writing-LAS/LAZ-files) to access the point data of an existing LAS/LAZ file:
 
 ```julia-repl
 julia> pts = LAS("USGS_LPC_Sandy_Supplemental_NCR_VA_MD_DC_QL2_LiDAR_18SUJ322306.laz")
