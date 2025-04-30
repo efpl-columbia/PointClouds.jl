@@ -458,7 +458,9 @@ or as a `URI` from the `URIs`/`HTTP` package.
     to `true` and only applies when the input is a URL.
 """
 Base.read(io::Base.IO, ::Type{LAS}; kws...) = LAS(io; kws...)
-Base.read(filename::AbstractString, ::Type{LAS}; kws...) = LAS(filename; kws...)
+function Base.read(filename::Union{AbstractString,HTTP.URI}, ::Type{LAS}; kws...)
+  LAS(filename; kws...)
+end
 
 unwrap(io::IOContext) = unwrap(io.io)
 unwrap(io::Base.IO) = io
@@ -469,11 +471,10 @@ function LAS(uri::HTTP.URI; cache = true, kws...)
   # if points are not required, try to download only the header data
   if get(kws, :read_points, true) == false
     # check if HTTP range requests are supported
-    if HTTP.header(HTTP.head(file), "Accept-Ranges", "none") == "bytes"
-      point_offset = only(
-        reinterpret(UInt32, HTTP.request("GET", file, ("Range" => "bytes=96-99",)).body),
-      )
-      las_head = HTTP.get(file, ("Range" => "bytes=0-$point_offset",)).body
+    if HTTP.header(HTTP.head(uri), "Accept-Ranges", "none") == "bytes"
+      point_offset =
+        only(reinterpret(UInt32, HTTP.get(uri, ("Range" => "bytes=96-99",)).body))
+      las_head = HTTP.get(uri, ("Range" => "bytes=0-$point_offset",)).body
       return LAS(IOBuffer(las_head); kws...)
     else
       @warn "Server does not support range requests, downloading whole file"
@@ -483,12 +484,12 @@ function LAS(uri::HTTP.URI; cache = true, kws...)
   # downloading to cache
   if cache == false
     @info "Downloading LAS data to memory"
-    return LAS(IOBuffer(HTTP.get(file).body); kws...)
+    return LAS(IOBuffer(HTTP.get(uri).body); kws...)
   end
 
   cache = cache == true ? tempname() : cache
   @info "Downloading LAS data to `$cache`"
-  HTTP.download(file, cache)
+  HTTP.download(string(uri), cache)
   LAS(cache; kws...)
 end
 
