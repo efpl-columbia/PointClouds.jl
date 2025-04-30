@@ -17,6 +17,7 @@ Documenter.makedocs(
   modules = [PointClouds],
   checkdocs = :exports,
   linkcheck = true,
+  linkcheck_ignore = ["https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/"],
   format = Documenter.HTML(
     edit_link = nothing,
     prettyurls = get(ENV, "PRETTY_URLS", "") == "true",

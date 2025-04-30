@@ -48,9 +48,10 @@ julia> extrema(tiles[1])
 
 We can load the data of this tile by passing it to the `LAS` constructor.
 This will download the data to the local cache folder, if it has not been downloaded already.
+Note that there is currently [an issue](https://github.com/efpl-columbia/PointClouds.jl/issues/4#issuecomment-2806511668) with the USGS server, so this only works if we disable SSL with `insecure = true`.
 
 ```jldoctest tutorial
-julia> las = LAS(tiles[1])
+julia> las = LAS(tiles[1]; insecure = true)
 16,107,898-point LAZ (v1.2, PDRF 1, 01 Jun 2015)
   Source ID     => 65535
   Project ID    => AEB2BAA1-2BEF-41FC-B9BB-BDA288E8D77B
