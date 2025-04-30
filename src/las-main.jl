@@ -456,6 +456,8 @@ or as a `URI` from the `URIs`/`HTTP` package.
     set to `true`), saved to a specific path (if set to a string), or not saved
     at all (if set to `false`, not supported for compressed LAZ data). Defaults
     to `true` and only applies when the input is a URL.
+  - `insecure`: Whether to allow downloading data from `url` without SSL
+    verification (default: `false`).
 """
 Base.read(io::Base.IO, ::Type{LAS}; kws...) = LAS(io; kws...)
 function Base.read(filename::Union{AbstractString,HTTP.URI}, ::Type{LAS}; kws...)
@@ -465,16 +467,19 @@ end
 unwrap(io::IOContext) = unwrap(io.io)
 unwrap(io::Base.IO) = io
 
-function LAS(uri::HTTP.URI; cache = true, kws...)
+function LAS(uri::HTTP.URI; cache = true, insecure = false, kws...)
   isfile(cache) && return LAS(cache; kws...)
+
+  # configuration options for HTTP requests
+  cfg = (; require_ssl_verification = !insecure)
 
   # if points are not required, try to download only the header data
   if get(kws, :read_points, true) == false
     # check if HTTP range requests are supported
-    if HTTP.header(HTTP.head(uri), "Accept-Ranges", "none") == "bytes"
+    if HTTP.header(HTTP.head(uri; cfg...), "Accept-Ranges", "none") == "bytes"
       point_offset =
-        only(reinterpret(UInt32, HTTP.get(uri, ("Range" => "bytes=96-99",)).body))
-      las_head = HTTP.get(uri, ("Range" => "bytes=0-$point_offset",)).body
+        only(reinterpret(UInt32, HTTP.get(uri, ("Range" => "bytes=96-99",); cfg...).body))
+      las_head = HTTP.get(uri, ("Range" => "bytes=0-$point_offset",); cfg...).body
       return LAS(IOBuffer(las_head); kws...)
     else
       @warn "Server does not support range requests, downloading whole file"
@@ -484,12 +489,12 @@ function LAS(uri::HTTP.URI; cache = true, kws...)
   # downloading to cache
   if cache == false
     @info "Downloading LAS data to memory"
-    return LAS(IOBuffer(HTTP.get(uri).body); kws...)
+    return LAS(IOBuffer(HTTP.get(uri; cfg...).body); kws...)
   end
 
   cache = cache == true ? tempname() : cache
   @info "Downloading LAS data to `$cache`"
-  HTTP.download(string(uri), cache)
+  HTTP.download(string(uri), cache; cfg...)
   LAS(cache; kws...)
 end
 
