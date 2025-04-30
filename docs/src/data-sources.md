@@ -30,8 +30,8 @@ gettiles
 Currently, PointClouds.jl supports downloading data from the [USGS 3D Elevation
 Program (3DEP)](@ref), which covers most of the continental United States. The
 `DataSource` argument of [`gettiles`](@ref) can be omitted for now, as
-`ScienceBase` is the only available option. Support for further databases is
-planned.
+[`ScienceBase`](@ref) is the only available option. Support for further
+databases is planned.
 
 ## Downloading point-cloud data
 
@@ -56,7 +56,7 @@ The raw point-cloud data is made available in the [ScienceBase catalog](https://
     [USGS file
     server](https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/).
     Note that other USGS services such as the [3DEP Lidar
-    Explorer](https://www.usgs.gov/NationalMap/LidarExplorer) and [TNM
+    Explorer](https://apps.nationalmap.gov/lidar-explorer/#/) and [TNM
     Access](https://apps.nationalmap.gov/tnmaccess/) also depend on ScienceBase
     to function.
 

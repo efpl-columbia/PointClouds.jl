@@ -46,7 +46,6 @@ julia> extrema(tiles[1])
     It is recommended to use the keyword arguments `lat` & `lon` to avoid ambiguities.
     3D point-cloud data handled by PointClouds.jl should always have coordinates in $(x, y, z)$-order.
 
-
 We can load the data of this tile by passing it to the `LAS` constructor.
 This will download the data to the local cache folder, if it has not been downloaded already.
 
@@ -155,7 +154,7 @@ julia> getcrs(las)
 
 This is the “raw” CRS data that is stored within the LAS, in this case using the CRS format defined in the [GeoTIFF standard](https://docs.ogc.org/is/19-008r4/19-008r4.html).
 We may be able to determine manually that this is meant to describe NAD83/UTM zone 18N coordinates ([EPSG:26918](https://epsg.io/26918)), but PointClouds.jl can also interpret the data for us.
-This is done by transforming it to the well-known text (WKT) representation defined in the [OpenGIS® Coordinate Transformation Service Standard](https://www.ogc.org/standard/ct/), which in turn can be interpreted by the [PROJ](https://proj.org/) library.
+This is done by transforming it to the well-known text (WKT) representation defined in the [OpenGIS® Coordinate Transformation Service Standard](https://www.ogc.org/standards/ct/), which in turn can be interpreted by the [PROJ](https://proj.org/) library.
 
 We can for example use [`coordinates`](@ref PointClouds.coordinates(::LAS, ::Any)) to look at $(x, y, z)$ of the first point in the WGS 84 coordinates ([EPSG:4326](https://epsg.io/4326)) that we used for our initial query:
 

@@ -1065,7 +1065,7 @@ format contained in the `LAS` or converted to the type `T`. The LAS format
 stores CRS data either in the binary format defined by the [GeoTIFF
 standard](https://docs.ogc.org/is/19-008r4/19-008r4.html) or using the
 well-known text (WKT) representation defined in the [OpenGIS® Coordinate
-Transformation Service Standard](https://www.ogc.org/standard/ct/). The former
+Transformation Service Standard](https://www.ogc.org/standards/ct/). The former
 is represented by the custom `GeoKeys` type while the latter is represented by
 a `String`. Currently, only the conversion from `GeoKeys` to a WKT `String` is
 implemented, but this allows passing CRS information obtained with
