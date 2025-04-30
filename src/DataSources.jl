@@ -82,28 +82,18 @@ end
 tiledir(::PointCloudTile{S}) where {S} = tiledir(S)
 
 """
-Get the path to the LAS of a tile, downloading the file first if necessary.
-"""
-function fetchtile(tile::PointCloudTile)
-  dir = tiledir(tile)
-  path = joinpath(dir, filename(tile))
-  if !isfile(path)
-    @info "Tile `$path` not cached, downloading…"
-    mkpath(dir)
-    HTTP.download(uri(tile), path)
-  end
-  path
-end
-
-"""
     LAS(t::PointCloudTile; kws...)
 
 Load the point-cloud data of a `PointCloudTile`, downloading the file if
 necessary. Downloaded files are saved to the user’s cache directory as provided
 by [BaseDirs.jl](https://github.com/tecosaur/BaseDirs.jl) and loaded from there
-in the future.
+in the future. See [`Base.read(url, LAS)`](@ref Base.read(::IO,
+::Type{PointClouds.LAS})) for keyword arguments.
 """
-IO.LAS(tile::PointCloudTile; kws...) = IO.LAS(fetchtile(tile); kws...)
+function IO.LAS(tile::PointCloudTile; kws...)
+  cache = joinpath(tiledir(tile), filename(tile))
+  IO.LAS(uri(tile); cache, kws...)
+end
 
 include("sciencebase.jl")
 
