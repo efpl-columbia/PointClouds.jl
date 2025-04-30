@@ -47,31 +47,53 @@ uri(tile::PointCloudTile{ScienceBase}) =
   end
 
 function gettiles(::Type{ScienceBase}; kws...)
+
+  # return the 10 latest tiles if no location is given
   if isempty(kws)
-    # return the 10 latest tiles
-    sciencebase_query(; sort = "lastUpdated", order = "desc", limit = 10)
-  elseif haskey(kws, :extent)
-    sciencebase_query(; filter = string("extentQuery=", kws[:extent]))
-  elseif haskey(kws, :lat) && haskey(kws, :lon)
-    xs, ys = kws[:lon], kws[:lat]
-    npt = length(xs)
-    length(ys) == npt || error("Number of latitude and longitude values must be equal")
-    limit = get(kws, :limit, 100)
-    if npt == 1 # single point
-      q = string("POINT(", xs[1], " ", ys[1], ")")
-      sciencebase_query(; filter = string("spatialQuery=", q), limit = limit)
-    elseif npt == 2 # bounding box
-      x0, x1 = xs
-      y0, y1 = ys
-      bbox = wkt_polygon(((x0, y0), (x1, y0), (x1, y1), (x0, y1)))
-      sciencebase_query(; filter = string("spatialQuery=", bbox), limit = limit)
-    else # polygon
-      q = wkt_polygon(zip(xs, ys))
-      sciencebase_query(; filter = string("spatialQuery=", q), limit = limit)
-    end
-  else
-    error("Could not determine ScienceBase query")
+    return sciencebase_query(; sort = "lastUpdated", order = "desc", limit = 10)
   end
+
+  # normalize coordinate arguments
+  xs = if haskey(kws, :x)
+    haskey(kws, :lon) && error("Only specify either `lon` or `x`, not both")
+    kws[:x]
+  elseif haskey(kws, :lon)
+    kws[:lon]
+  else
+    error("One of `lon` or `x` is required")
+  end
+  ys = if haskey(kws, :y)
+    haskey(kws, :lat) && error("Only specify either `lat` or `y`, not both")
+    kws[:y]
+  elseif haskey(kws, :lat)
+    kws[:lat]
+  else
+    error("One of `lat` or `y` is required")
+  end
+  npt = length(xs)
+  length(ys) == npt || error("Number of latitude and longitude values must be equal")
+
+  # transform coordinates to WGS 84, if necessary
+  crs = get(kws, :crs, nothing)
+  if !isnothing(crs)
+    transform = Proj.Transformation(crs, "EPSG:4326"; always_xy = true)
+    coords = (transform.(zip(xs, ys)))
+    xs = npt == 1 ? first(coords) : first.(coords)
+    ys = npt == 1 ? last(coords) : last.(coords)
+  end
+
+  # perform query
+  query = if npt == 1 # single point
+    string("POINT(", xs[1], " ", ys[1], ")")
+  elseif npt == 2 # bounding box
+    x0, x1 = xs
+    y0, y1 = ys
+    wkt_polygon(((x0, y0), (x1, y0), (x1, y1), (x0, y1)))
+  else # polygon
+    wkt_polygon(zip(xs, ys))
+  end
+  limit = get(kws, :limit, 100)
+  sciencebase_query(; filter = string("spatialQuery=", query), limit)
 end
 
 function wkt_polygon(pts)
