@@ -24,7 +24,7 @@ function Base.getindex(r::RasterizedPointCloud, f::AttributeName)
   PointCloudField{length(dims),typeof(data)}(data, point_indices, offsets, dims)
 end
 
-Base.size(c::RasterizedPointCloud) = c.dims
+Base.size(c::RasterizedPointCloud) = getfield(c, :dims)
 
 Base.length(c::PointCloudField) = prod(c.dims)
 Base.size(c::PointCloudField) = c.dims

@@ -72,6 +72,7 @@ function run_pointcloud_tests(; verbose)
   # rasterized point cloud data
   r = rasterize(pts, (3, 3); extent = ((0, 0), (7, 7)))
   @test eltype(eltype(r.x)) == Float64
+  @test size(r) == (3, 3)
   count = map(xs -> length(xs), r.x)
   @test count == [2 0 0; 0 2 0; 0 0 1]
   mean_height = map(r.z) do zs
