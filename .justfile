@@ -68,7 +68,7 @@ makedocs:
   include(joinpath(pwd(), "docs", "make.jl"))
 
 # Launch a local server for the documentation
-servedocs:
+servedocs *params:
   #!/usr/bin/env julia
   import Pkg
   Pkg.activate(; temp=true)

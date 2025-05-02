@@ -16,6 +16,7 @@ Documenter.makedocs(
   ],
   modules = [PointClouds],
   checkdocs = :exports,
+  doctest = !("--skip-tests" in ARGS),
   linkcheck = true,
   linkcheck_ignore = ["https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/"],
   format = Documenter.HTML(
