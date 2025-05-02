@@ -82,6 +82,7 @@ function rasterize(
   extent = boundingbox(pts),
   radius = nothing,
   neighbors = nothing,
+  tol = 1e-6,
 )
   isnothing(radius) || return rasterize_radius(pts, dims, extent, radius)
   isnothing(neighbors) || return rasterize_neighbors(pts, dims, extent, neighbors)
@@ -98,8 +99,9 @@ function rasterize(
 
   # determine raster index for each point
   pixel_indices = map(zip(pts.x, pts.y)) do coord
-    i, j = div.(coord .- origin, spacing)
-    if 1 <= i <= dims[1] && 1 <= j <= dims[2]
+    ic, jc = (coord .- origin) ./ spacing # “continuous” indices
+    if 1 - tol <= ic <= dims[1] + 1 + tol && 1 - tol <= jc <= dims[2] + 1 + tol
+      i, j = clamp.(floor.(Int, (ic, jc)), 1, dims)
       Int(i + (j - 1) * dims[1])
     else
       zero(Int) # points will be skipped
