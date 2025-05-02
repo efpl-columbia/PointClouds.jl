@@ -66,10 +66,9 @@ empty pixels.
 
 # Keywords
 
-  - `x` or `lon`: A tuple `(xmin, xmax)` with the minimum and maximum value of
-    the x-coordinate range that should be divided into `dims[1]` intervals.
-  - `y` or `lat`: A tuple `(ymin, ymax)` with the minimum and maximum value of
-    the y-coordinate range that should be divided into `dims[2]` intervals.
+  - `extent`: Specify the extent of the raster area as a tuple with the lower
+    and upper bounds of the coordinates. Each entry is a tuple of x- and
+    y-values, e.g. `extent = ((0, 0), (1, 2))` for ``0 ≤ x ≤ 1`` and ``0 ≤ y ≤ 2``.
   - `radius`: Assign all points within a distance of `radius` from the pixel
     center to that raster location. The unit of `radius` is the same as the
     x-/y-coordinates. Note that points may get assigned to multiple or zero

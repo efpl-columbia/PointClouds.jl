@@ -127,12 +127,10 @@ interpreted as coordinates and all the other names as additional attributes.
     transformed to, specified as any string understood by the [PROJ
     library](https://proj.org/en/9.4/usage/quickstart.html). Default: CRS of the
     first input.
-  - `x` or `lon`: A tuple `(xmin, xmax)` with the minimum and maximum value of
-    the x-coordinate range that should be retained, in the CRS of the output.
-  - `y` or `lat`: A tuple `(ymin, ymax)` with the minimum and maximum value of
-    the y-coordinate range that should be retained, in the CRS of the output.
-  - `z`: A tuple `(zmin, zmax)` with the minimum and maximum value of the
-    z-coordinate range that should be retained, in the CRS of the output.
+  - `extent`: Only include points that lie within a limited range of
+    coordinates, specified as a tuple with the lower and upper bounds. Each
+    bound is a tuple of x- and y-values, e.g. `extent = ((0, 0), (1, 2))` for
+    ``0 ≤ x ≤ 1`` and ``0 ≤ y ≤ 2``.
   - `filter`: Predicate function that is called on each point to exclude points
     for which the `filter` function returns `false`.
 
