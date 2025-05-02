@@ -57,6 +57,14 @@ Base.getindex(pts::PointCloud, ind::Number) = NamedTuple(getdata(pts)[ind, :])
 # indexing by range etc. returns a new point cloud
 Base.getindex(pts::PointCloud, inds) = PointCloud(getdata(pts)[inds, :], getcrs(pts))
 
+# minima and maxima of the coordinates
+Base.minimum(pts::PointCloud) = minimum.(coordinates(pts))
+Base.maximum(pts::PointCloud) = maximum.(coordinates(pts))
+function Base.extrema(pts::PointCloud)
+  ex = extrema.(coordinates(pts))
+  first.(ex), last.(ex)
+end
+
 function PointCloud(
   input::NamedTuple;
   crs = nothing,
@@ -200,6 +208,11 @@ Provide the `crs` keyword argument to transform the coordinates to a new CRS
 instead of the current CRS of the `PointCloud`.
 """
 coordinates(pts::PointCloud, inds; crs = nothing) = error("Not yet implemented")
+
+function coordinates(pts::PointCloud)
+  # TODO: make sure this can be evaluated statically
+  Tuple(pts[coord] for coord in filter(c -> haskey(pts, c), (:x, :y, :z)))
+end
 
 """
     transform(p::PointCloud; crs)

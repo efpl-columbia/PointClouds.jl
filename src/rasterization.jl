@@ -25,6 +25,9 @@ function Base.getindex(r::RasterizedPointCloud, f::AttributeName)
 end
 
 Base.size(c::RasterizedPointCloud) = getfield(c, :dims)
+Base.minimum(c::RasterizedPointCloud) = first(extrema(c))
+Base.maximum(c::RasterizedPointCloud) = last(extrema(c))
+Base.extrema(c::RasterizedPointCloud) = getfield(c, :extent)
 
 Base.length(c::PointCloudField) = prod(c.dims)
 Base.size(c::PointCloudField) = c.dims
