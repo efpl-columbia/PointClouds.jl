@@ -13,6 +13,7 @@ Documenter.makedocs(
     "input-output.md",
     "point-processing.md",
     "data-sources.md",
+    "development.md",
   ],
   modules = [PointClouds],
   checkdocs = :exports,

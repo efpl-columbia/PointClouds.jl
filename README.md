@@ -86,6 +86,7 @@ If you run into a problem or would like to request a new feature, feel free to [
 
 We also welcome contributions to the code, the tests, and the documentation – feel free to open a [pull request](https://github.com/efpl-columbia/PointClouds.jl/pulls).
 If you want to make sure your work fits within the plans and scope of PointClouds.jl, it might be best to first open an issue or draft PR to discuss the changes, especially when a significant amount of work is involved.
+The documentation contains some [additional information](https://docs.mfsch.dev/PointClouds.jl/development/) for developing PointClouds.jl.
 
 ## Attribution & License
 
