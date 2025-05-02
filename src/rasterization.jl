@@ -79,7 +79,7 @@ empty pixels.
 function rasterize(
   pts::PointCloud,
   dims;
-  extent = boundingbox(pts),
+  extent = getindex.(extrema(pts), (1:length(dims),)),
   radius = nothing,
   neighbors = nothing,
   tol = 1e-6,
