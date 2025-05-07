@@ -23,7 +23,7 @@ date: 19 Jul 2024
 bibliography: references.bib
 ---
 
-[^1]: Marco G. Giometto holds concurrent appointments as Assistant Professor at Columbia University as Amazon Visiting Academic. This paper describes work performed at Columbia University and is not associated with Amazon.
+[^1]: Marco G. Giometto holds concurrent appointments as Assistant Professor at Columbia University and as Amazon Visiting Academic. This paper describes work performed at Columbia University and is not associated with Amazon.
 
 
 # Summary
