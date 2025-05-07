@@ -59,6 +59,6 @@ Follow [the tutorial](@ref "Tutorial") for an introduction to the functionality 
 ## Contents of documentation
 
 ```@contents
-Pages = ["input-output.md", "point-processing.md", "data-sources.md"]
+Pages = ["tutorial.md", "input-output.md", "point-processing.md", "data-sources.md", "development.md"]
 Depth = 1:2
 ```
