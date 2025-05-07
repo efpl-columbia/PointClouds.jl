@@ -84,6 +84,9 @@ Applications that heavily rely on existing building blocks to set up a point-pro
 Over time, we hope that PointClouds.jl can also match the maturity and comprehensiveness of the alternative choices.
 
 There are also a number of existing Julia packages that share parts of the functionality and goals of PointClouds.jl.
+LAS/LAZ file support was pioneered by LasIO.jl and LazIO.jl, inspiring the corresponding functionality in PointClouds.jl, whereas LASDatasets.jl represents a recent effort for more comprehensive LAS/LAZ functionality.
+In the domain of geospatial data processing, the JuliaGeo and JuliaEarth ecosystems provide a variety of tools, many of which may be applied to point-cloud data.
+A few packages such as PointCloudRasterizers.jl are geared specifically towards such applications.
 Nevertheless, we see benefit from a project that optimizes the functionality, ergonomics, and performance across the entire process of finding, loading, and transforming point-cloud data.
 
 
