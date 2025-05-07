@@ -70,7 +70,7 @@ The functionality of PointClouds.jl covers three main areas: data access, file i
 **Data access:** PointClouds.jl can query national lidar datasets using coordinates, automatically downloading the available data for the requested areas.
 Initial support is included for the USGS 3D Elevation Program (3DEP) in the United States whereas support for other national programs will be added over time.
 
-**File input and output:** PointClouds.jl reads and writes the LAS format defined by the American Society for Photogrammetry and Remote Sensing (ASPRS) and the compressed LAZ variant in all current versions of the format (1.0 – 1.4) with strict adherence to the specification.
+**File input and output:** PointClouds.jl reads and writes the LAS format defined by the @ASPRS:2019 and the compressed LAZ variant [@Isenburg:2013] in all current versions of the format (1.0 – 1.4) with strict adherence to the specification.
 It includes support for parsing the coordinate reference system (CRS) information and for working with files that do not fit into memory using lazy processing.
 While LAS/LAZ is the most common format for published point-cloud datasets, support for additional point-cloud formats is within the scope of PointClouds.jl and may be added over time, whereas support for general-purpose data formats such as HDF5 is delegated to separate Julia packages.
 
