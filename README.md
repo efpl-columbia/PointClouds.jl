@@ -93,6 +93,7 @@ The documentation contains some [additional information](https://docs.mfsch.dev/
 [![JOSS Paper](https://joss.theoj.org/papers/7885dd3306a23583dcf3963374c0c1cb/status.svg)](https://joss.theoj.org/papers/7885dd3306a23583dcf3963374c0c1cb)
 [![MIT License](https://img.shields.io/badge/License-MIT-D2D2C0)](./LICENSE.md)
 
-PointClouds.jl is freely available under the terms of the [MIT License](./LICENSE.md).
-A [JOSS](https://joss.theoj.org/) paper describing PointClouds.jl is currently [under review](https://joss.theoj.org/papers/7885dd3306a23583dcf3963374c0c1cb).
+A [JOSS paper](https://joss.theoj.org/papers/7885dd3306a23583dcf3963374c0c1cb) describes the motivation for PointClouds.jl and gives an overview of the functionality.
 Please cite this work if you use PointClouds.jl for your scientific publications.
+
+PointClouds.jl is freely available under the terms of the [MIT License](./LICENSE.md).
