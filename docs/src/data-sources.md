@@ -41,14 +41,6 @@ Tiles can be passed to the `LAS` constructor to load the point-cloud data.
 LAS(::PointClouds.DataSources.PointCloudTile)
 ```
 
-!!! note
-    There is currently [an
-    issue](https://github.com/efpl-columbia/PointClouds.jl/issues/4#issuecomment-2806511668)
-    with the SSL certificates of the RockyWeb server where the USGS LAS data is
-    stored. Pass the keyword argument `insecure = true` to [`LAS`](@ref
-    LAS(::PointClouds.DataSources.PointCloudTile)) to skip the certificate
-    verification.
-
 ## USGS 3D Elevation Program (3DEP)
 
 The [USGS 3D Elevation Program

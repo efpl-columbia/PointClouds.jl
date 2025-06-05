@@ -19,7 +19,7 @@ Documenter.makedocs(
   checkdocs = :exports,
   doctest = !("--skip-tests" in ARGS),
   linkcheck = true,
-  linkcheck_ignore = ["https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/"],
+  linkcheck_ignore = [],
   format = Documenter.HTML(
     edit_link = nothing,
     prettyurls = get(ENV, "PRETTY_URLS", "") == "true",
