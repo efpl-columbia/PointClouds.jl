@@ -460,9 +460,8 @@ or as a `URI` from the `URIs`/`HTTP` package.
     verification (default: `false`).
 """
 Base.read(io::Base.IO, ::Type{LAS}; kws...) = LAS(io; kws...)
-function Base.read(filename::Union{AbstractString,HTTP.URI}, ::Type{LAS}; kws...)
-  LAS(filename; kws...)
-end
+Base.read(filename::AbstractString, ::Type{LAS}; kws...) = LAS(filename; kws...)
+Base.read(uri::HTTP.URI, ::Type{LAS}; kws...) = LAS(uri; kws...)
 
 unwrap(io::IOContext) = unwrap(io.io)
 unwrap(io::Base.IO) = io
