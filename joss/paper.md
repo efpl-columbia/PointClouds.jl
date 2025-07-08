@@ -17,14 +17,11 @@ authors:
 affiliations:
   - name: Columbia University, New York, NY, USA
     index: 1
-  - name: Amazon, Seattle, WA, USA[^1]
+  - name: Amazon, Seattle, WA, USA
     index: 2
 date: 19 Jul 2024
 bibliography: references.bib
 ---
-
-[^1]: Marco G. Giometto holds concurrent appointments as Assistant Professor at Columbia University and as Amazon Visiting Academic. This paper describes work performed at Columbia University and is not associated with Amazon.
-
 
 # Summary
 
@@ -92,7 +89,10 @@ Nevertheless, we see benefit from a project that optimizes the functionality, er
 
 # Acknowledgements
 
-We acknowledge the financial support from Amazon. This material is based upon work supported by, or in part by, the Army Research Laboratory and the Army Research Office under grant number W911NF-22-1-0178.
+We acknowledge the financial support from Amazon.
+Marco G. Giometto holds concurrent appointments as Assistant Professor at Columbia University and as Amazon Visiting Academic.
+This paper describes work performed at Columbia University and is not associated with Amazon.
+This material is based upon work supported by, or in part by, the Army Research Laboratory and the Army Research Office under grant number W911NF-22-1-0178.
 
 
 # References
