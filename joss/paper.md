@@ -17,8 +17,10 @@ authors:
 affiliations:
   - name: Columbia University, New York, NY, USA
     index: 1
+    ror: 00hj8s172
   - name: Amazon, Seattle, WA, USA
     index: 2
+    ror: 04mv4n011
 date: 19 Jul 2024
 bibliography: references.bib
 ---
