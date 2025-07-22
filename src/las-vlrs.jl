@@ -18,6 +18,7 @@ function Base.read(
   ::Type{VariableLengthRecord};
   max_bytes = nothing,
   version = nothing,
+  extended = false,
 )
 
   # check whether there are enough bytes left to read the record header
@@ -29,7 +30,7 @@ function Base.read(
   reserved = read(io, UInt16)
   user_id = bytes_to_string(read!(io, Vector{UInt8}(undef, 16)))
   record_id = read(io, UInt16)
-  record_length = read(io, UInt16)
+  record_length = extended ? read(io, UInt64) : convert(UInt64, read(io, UInt16))
   description = bytes_to_string(read!(io, Vector{UInt8}(undef, 32)))
 
   # check whether there are enough bytes left to read the record data

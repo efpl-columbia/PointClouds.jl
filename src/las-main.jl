@@ -602,6 +602,9 @@ function LAS(io::Base.IO; read_points = :auto, override_crs = nothing)
     bytes_read += 8
   end
 
+  evlr_data_offset = zero(UInt64)
+  evlr_count = zero(UInt32)
+
   if version < (1, 4)
     if has_well_known_text
       @warn "Well Known Text is not officially supported before LAS v1.4"
@@ -612,10 +615,8 @@ function LAS(io::Base.IO; read_points = :auto, override_crs = nothing)
     end
 
     # parse extended variable length records
-    # TODO: add support for loading EVLRs
-    evlr_start = read(io, UInt64)
-    n_evlr = read(io, UInt32)
-    iszero(n_evlr) || @warn "Loading EVLRs is currently not implemented"
+    evlr_data_offset = read(io, UInt64)
+    evlr_count = read(io, UInt32)
 
     # parse new 64-bit record counts with support for up to 15 returns;
     # if legacy values are provided they should match the 64-bit values
@@ -688,8 +689,10 @@ function LAS(io::Base.IO; read_points = :auto, override_crs = nothing)
   pdrf_type = point_record_type(pdrf_number, pdrf_bytes)
   points = if read_points == false
     # do not read points, just save point type & count
+    read_evlrs!(io, vlrs; count = evlr_count, offset = evlr_data_offset - point_data_offset)
     UnavailablePoints{pdrf_type}(point_count_total)
   elseif read_points == :laszip || (islaz && read_points in (:auto, true))
+    read_evlrs!(io, vlrs; count = evlr_count, offset = evlr_data_offset - point_data_offset)
     filename = extract_filename(io)
     isnothing(filename) && error("Could not determine filename for LASzip")
     r = LASzipReader(filename, pdrf_type, point_count_total)
@@ -702,18 +705,24 @@ function LAS(io::Base.IO; read_points = :auto, override_crs = nothing)
     pos = position(io) # to compute number of elements, if incomplete
     try
       read_points!(io, points)
+      offset = evlr_data_offset - (point_data_offset + pdrf_bytes * point_count_total)
+      iszero(evlr_count) || offset <= 0 || @warn "Skipping $offset bytes before EVLRs"
+      read_evlrs!(io, vlrs; count = evlr_count, offset)
     catch ex
       ex isa EOFError || rethrow()
       resize!(points, div(position(io) - pos, pdrf_bytes))
       n = point_count_total - length(points)
       # TODO: check if discarded data can be added to error message
-      @error "Point data ends prematurely ($n record$('s'^(n>1)) missing)"
+      err_evlr = iszero(evlr_count) ? "" : " and $evlr_count EVLRs"
+      @error "Point data ends prematurely ($n record$('s'^(n>1))$err_evlr missing)"
     end
     eof(io) || @error "Input longer than expected"
     points
   elseif read_points in (:auto, true)
     pts = MappedPoints(unwrap(io), pdrf_type, point_count_total)
-    # TODO: allow for EVLR data after point data
+    offset = evlr_data_offset - (point_data_offset + pdrf_bytes * point_count_total)
+    iszero(evlr_count) || offset <= 0 || @warn "Skipping $offset bytes before EVLRs"
+    read_evlrs!(io, vlrs; count = evlr_count, offset)
     eof(io) || @error "Input longer than expected"
     read_points == true ? collect(pts) : pts
   else
@@ -751,6 +760,23 @@ read_points!(io, pts) =
   foreach(eachindex(pts)) do ind
     @inbounds pts[ind] = read(io, eltype(pts))
   end
+
+function read_evlrs!(io, vlrs; count, offset, version = (1, 4))
+  # NOTE: EVLRs can only occur in LAS 1.4
+  io = unwrap(io)
+  iszero(count) && return
+  if offset < 0
+    @error "Ignoring $count EVLRs since offset overlaps with other data"
+    return
+  end
+  skip(io, offset)
+  for _ in 1:count
+    vlr = read(io, VariableLengthRecord; version, extended = true)
+    isnothing(vlr) && break
+    push!(vlrs, vlr)
+  end
+  vlrs
+end
 
 function Base.write(filename::AbstractString, las::LAS; format = nothing)
   if isnothing(format)
