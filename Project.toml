@@ -1,7 +1,7 @@
 name = "PointClouds"
 uuid = "3cc211ed-1f43-4d33-a894-629186066e97"
 authors = ["Manuel F. Schmid <mfs2173@columbia.edu>"]
-version = "1.0.0"
+version = "1.1.0"
 
 [deps]
 BaseDirs = "18cc8868-cbac-4acf-b575-c8ff214dc66f"
