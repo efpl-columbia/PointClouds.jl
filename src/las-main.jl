@@ -467,7 +467,7 @@ unwrap(io::IOContext) = unwrap(io.io)
 unwrap(io::Base.IO) = io
 
 function LAS(uri::HTTP.URI; cache = true, insecure = false, kws...)
-  isfile(cache) && return LAS(cache; kws...)
+  cache isa String && isfile(cache) && return LAS(cache; kws...)
 
   # configuration options for HTTP requests
   cfg = (; require_ssl_verification = !insecure)
