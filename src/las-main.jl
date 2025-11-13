@@ -30,7 +30,7 @@ attributes.
 
 The variable length records of a LAS file store information about the
 coordinate reference system (CRS), which can be accessed with the
-[`getcrs`](@ref) function. The raw VLR data can be accessed through the `vlr`
+[`getcrs`](@ref) function. The raw VLR data can be accessed through the `vlrs`
 field of `LAS`.
 
 # Global point cloud attributes
