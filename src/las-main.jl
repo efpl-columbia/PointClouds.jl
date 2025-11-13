@@ -493,6 +493,7 @@ function LAS(uri::HTTP.URI; cache = true, insecure = false, kws...)
 
   cache = cache == true ? tempname() : cache
   @info "Downloading LAS data to `$cache`"
+  mkpath(dirname(cache))
   HTTP.download(string(uri), cache; cfg...)
   LAS(cache; kws...)
 end
