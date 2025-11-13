@@ -57,7 +57,7 @@ getsample:
   HTTP.download("https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/LPC/Projects/Sandy_Supplemental_NCR_VA_MD_DC_QL2_LiDAR/MD_VA_Sandy_NCR_2014/LAZ/USGS_LPC_Sandy_Supplemental_NCR_VA_MD_DC_QL2_LiDAR_18SUJ322306.laz", path, ("Range" => "bytes=0-51489",))
 
 # Build documentation to `docs/build` folder
-makedocs:
+makedocs *params:
   #!/usr/bin/env julia
   import Pkg
   Pkg.activate(; temp=true)

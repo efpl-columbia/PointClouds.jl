@@ -18,7 +18,7 @@ Documenter.makedocs(
   modules = [PointClouds],
   checkdocs = :exports,
   doctest = !("--skip-tests" in ARGS),
-  linkcheck = true,
+  linkcheck = !("--skip-tests" in ARGS),
   linkcheck_ignore = [],
   format = Documenter.HTML(
     edit_link = nothing,
