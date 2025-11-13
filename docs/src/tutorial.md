@@ -46,6 +46,13 @@ julia> extrema(tiles[1])
     It is recommended to use the keyword arguments `lat` & `lon` to avoid ambiguities.
     3D point-cloud data handled by PointClouds.jl should always have coordinates in $(x, y, z)$-order.
 
+!!! warning
+    The [ScienceBase catalog](https://www.sciencebase.gov/catalog/) is [not always working properly](https://github.com/efpl-columbia/PointClouds.jl/issues/4) so it is possible that `gettiles` results in an error.
+    To continue with the tutorial, you can load the LAS data directly from the URL with the following command:
+    ```julia-repl
+    julia> las = LAS("https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/LPC/Projects/Sandy_Supplemental_NCR_VA_MD_DC_QL2_LiDAR/MD_VA_Sandy_NCR_2014/LAZ/USGS_LPC_Sandy_Supplemental_NCR_VA_MD_DC_QL2_LiDAR_18SUJ322306.laz")
+    ```
+
 We can load the data of this tile by passing it to the `LAS` constructor.
 This will download the data to the local cache folder, if it has not been downloaded already.
 
